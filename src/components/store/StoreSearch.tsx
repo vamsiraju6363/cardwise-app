@@ -118,9 +118,9 @@ interface StoreSearchProps {
  */
 export function StoreSearch({ onStoreSelect, navigateOnSelect = false, className, inputRef: inputRefProp }: StoreSearchProps) {
   const listboxId = useId();
-  const internalRef = useRef<HTMLInputElement>(null);
+  const internalRef = useRef<HTMLInputElement | null>(null);
   const inputRef = inputRefProp ?? internalRef;
-  const listRef   = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
 
   const [inputValue, setInputValue]     = useState("");
   const [isOpen, setIsOpen]             = useState(false);
