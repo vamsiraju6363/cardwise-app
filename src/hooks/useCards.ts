@@ -183,9 +183,10 @@ export function useToggleCardActive() {
 
       if (!isActive) {
         // Hiding: optimistically remove from active list
-        queryClient.setQueryData(USER_CARDS_KEY, (old: unknown[] | undefined) =>
-          (old ?? []).filter((uc: { id: string }) => uc.id !== id),
-        );
+        queryClient.setQueryData(USER_CARDS_KEY, (old: unknown) => {
+          if (!Array.isArray(old)) return old;
+          return old.filter((uc: { id: string }) => uc.id !== id);
+        });
       }
       // Restoring: no optimistic add (we'd need full card data from archived)
       return { prevActive, prevAll };
