@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { OfferService } from "@/services/offer.service";
+import { TrackerService } from "@/services/tracker.service";
 import { SpendTrackingUpsertSchema } from "@/lib/validations/offer.schema";
 
 /** GET /api/offers — returns all spend tracking records for the user */
@@ -9,8 +9,7 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
-
-  const records = await OfferService.getSpendTracking(session.user.id);
+  const records = await TrackerService.getSpendTracking(session.user.id);
   return NextResponse.json(records);
 }
 
@@ -20,16 +19,14 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
-
   const body: unknown = await request.json();
   const parsed = SpendTrackingUpsertSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
+    return NextResp.json(
       { message: "Validation error", errors: parsed.error.flatten().fieldErrors },
       { status: 422 }
     );
   }
-
-  const record = await OfferService.upsertSpendTracking(parsed.data);
+  const record = await TrackerService.upsertSpendTracking(parsed.data);
   return NextResponse.json(record, { status: 201 });
 }
