@@ -1,0 +1,396 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Check, CreditCard, Search, ArrowLeft, Loader2 } from "lucide-react";
+import { useWalletStore } from "@/stores/useWalletStore";
+import { useAddCard, useUpdateCard, useAllCards } from "@/hooks/useCards";
+import {
+  addCardSchema,
+  updateCardSchema,
+  type AddCardInput,
+  type UpdateCardInput,
+} from "@/lib/validations/card.schema";
+import { cn, formatPercent, getRewardTypeLabel } from "@/lib/utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type CatalogCard = {
+  id:            string;
+  issuer:        string;
+  cardName:      string;
+  network:       string;
+  baseRewardPct: number;
+  rewardType:    string;
+  annualFee:     number;
+};
+
+// ─── Network gradient (mirrors CardTile) ─────────────────────────────────────
+
+const NETWORK_GRADIENT: Record<string, string> = {
+  VISA:       "from-blue-600 via-blue-700 to-blue-900",
+  MASTERCARD: "from-orange-500 via-orange-600 to-red-700",
+  AMEX:       "from-emerald-600 via-emerald-700 to-teal-900",
+  DISCOVER:   "from-purple-600 via-purple-700 to-indigo-900",
+};
+
+// ─── Mini card preview ────────────────────────────────────────────────────────
+
+function CardPreview({
+  card,
+  nickname,
+  lastFour,
+}: {
+  card:     CatalogCard;
+  nickname: string;
+  lastFour: string;
+}) {
+  const gradient    = NETWORK_GRADIENT[card.network] ?? "from-slate-600 to-slate-900";
+  const displayName = nickname.trim() || card.cardName;
+  const digits      = lastFour.trim() || "••••";
+
+  return (
+    <div className={cn("rounded-xl bg-gradient-to-br p-4 h-[120px] flex flex-col justify-between shadow-md", gradient)}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-6 rounded-md bg-white/15 flex items-center justify-center">
+            <CreditCard className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-white/75 text-[11px] font-medium">{card.issuer}</span>
+        </div>
+        <Badge variant="outline" className="text-[10px] border-white/30 text-white/80 px-1.5 py-0">
+          {card.network}
+        </Badge>
+      </div>
+      <div>
+        <p className="text-white font-semibold text-sm truncate">{displayName}</p>
+        <p className="text-white/50 text-[11px] font-mono tracking-widest mt-0.5">
+          •••• •••• •••• {digits}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── AddCardModal ─────────────────────────────────────────────────────────────
+
+/**
+ * Two-step modal for adding a card to the wallet, or editing an existing one.
+ *
+ * Step 1 (add mode): Searchable catalog grouped by issuer. Select a card to proceed.
+ * Step 2 (add mode): Optional nickname + last-four fields with a live card preview.
+ * Edit mode:         Directly shows nickname + last-four fields.
+ */
+export function AddCardModal() {
+  const { isAddCardModalOpen, editingCard, closeAddCardModal } = useWalletStore();
+  const { data: catalogCards, isLoading: isCatalogLoading }   = useAllCards();
+  const addCard    = useAddCard();
+  const updateCard = useUpdateCard();
+
+  const isEditing = !!editingCard;
+  const [step, setStep]               = useState<"pick" | "label">("pick");
+  const [selectedCard, setSelectedCard] = useState<CatalogCard | null>(null);
+  const [searchQuery, setSearchQuery]   = useState("");
+
+  // ── Forms ──
+  const addForm = useForm<AddCardInput>({
+    resolver:      zodResolver(addCardSchema),
+    defaultValues: { cardId: "", nickname: "", lastFour: "" },
+  });
+
+  const editForm = useForm<UpdateCardInput>({
+    resolver:      zodResolver(updateCardSchema),
+    defaultValues: { nickname: "", lastFour: "" },
+  });
+
+  // Reset state whenever the modal opens/closes or switches between add/edit
+  useEffect(() => {
+    if (isAddCardModalOpen) {
+      if (isEditing) {
+        setStep("label");
+        editForm.reset({
+          nickname: editingCard.nickname ?? "",
+          lastFour: editingCard.lastFour ?? "",
+        });
+      } else {
+        setStep("pick");
+        setSelectedCard(null);
+        setSearchQuery("");
+        addForm.reset({ cardId: "", nickname: "", lastFour: "" });
+      }
+    }
+  }, [isAddCardModalOpen, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Catalog grouped by issuer ──
+  const groupedCatalog = useMemo(() => {
+    const cards = (catalogCards ?? []) as CatalogCard[];
+    const q     = searchQuery.trim().toLowerCase();
+
+    const filtered = q
+      ? cards.filter(
+          (c) =>
+            c.issuer.toLowerCase().includes(q) ||
+            c.cardName.toLowerCase().includes(q),
+        )
+      : cards;
+
+    return filtered.reduce<Record<string, CatalogCard[]>>((acc, card) => {
+      (acc[card.issuer] ??= []).push(card);
+      return acc;
+    }, {});
+  }, [catalogCards, searchQuery]);
+
+  // ── Handlers ──
+  function handlePickCard(card: CatalogCard) {
+    setSelectedCard(card);
+    addForm.setValue("cardId", card.id);
+    setStep("label");
+  }
+
+  async function handleAdd(values: AddCardInput) {
+    await addCard.mutateAsync({
+      cardId:   selectedCard!.id,
+      nickname: values.nickname || undefined,
+      lastFour: values.lastFour || undefined,
+    });
+    closeAddCardModal();
+  }
+
+  async function handleUpdate(values: UpdateCardInput) {
+    await updateCard.mutateAsync({
+      id:   editingCard!.id,
+      data: {
+        nickname: values.nickname || null,
+        lastFour: values.lastFour || null,
+      },
+    });
+    closeAddCardModal();
+  }
+
+  // Live preview values
+  const watchNickname = addForm.watch("nickname") ?? "";
+  const watchLastFour = addForm.watch("lastFour") ?? "";
+
+  return (
+    <Dialog open={isAddCardModalOpen} onOpenChange={(open) => !open && closeAddCardModal()}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-lg font-semibold">
+            {isEditing
+              ? "Edit card"
+              : step === "pick"
+              ? "Add a card"
+              : "Label your card"}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {isEditing
+              ? "Update your card's nickname or last four digits."
+              : step === "pick"
+              ? "Choose a card from the catalog to add to your wallet."
+              : "Optionally give your card a nickname and enter the last 4 digits."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 pb-6 pt-4 space-y-4">
+
+          {/* ── Step 1: Pick from catalog ── */}
+          {!isEditing && step === "pick" && (
+            <>
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search cards…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+
+              {/* Catalog list */}
+              <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
+                {isCatalogLoading
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                    ))
+                  : Object.entries(groupedCatalog).length === 0
+                  ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No cards match &ldquo;{searchQuery}&rdquo;
+                    </p>
+                  )
+                  : Object.entries(groupedCatalog).map(([issuer, cards]) => (
+                      <div key={issuer}>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 px-1">
+                          {issuer}
+                        </p>
+                        <div className="space-y-1">
+                          {cards.map((card) => (
+                            <button
+                              key={card.id}
+                              onClick={() => handlePickCard(card)}
+                              className={cn(
+                                "w-full flex items-center gap-3 p-3 rounded-xl border text-left",
+                                "transition-all duration-150",
+                                "hover:border-emerald-300 hover:bg-emerald-50",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "w-8 h-8 rounded-lg bg-gradient-to-br shrink-0",
+                                  NETWORK_GRADIENT[card.network] ?? "from-slate-600 to-slate-900",
+                                )}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{card.cardName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatPercent(card.baseRewardPct)} base ·{" "}
+                                  {getRewardTypeLabel(card.rewardType as "CASHBACK" | "POINTS" | "MILES")} ·{" "}
+                                  {card.annualFee === 0 ? "No annual fee" : `$${card.annualFee}/yr`}
+                                </p>
+                              </div>
+                              <Check className="h-4 w-4 text-emerald-500 opacity-0 group-hover:opacity-100 shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Step 2: Label (add mode) ── */}
+          {!isEditing && step === "label" && selectedCard && (
+            <form onSubmit={addForm.handleSubmit(handleAdd)} className="space-y-4">
+              {/* Live preview */}
+              <CardPreview
+                card={selectedCard}
+                nickname={watchNickname}
+                lastFour={watchLastFour}
+              />
+
+              <div className="space-y-2">
+                <Label htmlFor="nickname">Nickname <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  id="nickname"
+                  placeholder={`e.g. "My ${selectedCard.cardName}"`}
+                  maxLength={30}
+                  {...addForm.register("nickname")}
+                />
+                {addForm.formState.errors.nickname && (
+                  <p className="text-xs text-destructive">{addForm.formState.errors.nickname.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastFour">Last 4 digits <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  id="lastFour"
+                  placeholder="1234"
+                  maxLength={4}
+                  inputMode="numeric"
+                  {...addForm.register("lastFour")}
+                />
+                {addForm.formState.errors.lastFour && (
+                  <p className="text-xs text-destructive">{addForm.formState.errors.lastFour.message}</p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setStep("pick")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={addCard.isPending}
+                >
+                  {addCard.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding…</>
+                  ) : (
+                    "Add to wallet"
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Edit mode ── */}
+          {isEditing && (
+            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-nickname">Nickname</Label>
+                <Input
+                  id="edit-nickname"
+                  placeholder="e.g. My Blue Amex"
+                  maxLength={30}
+                  {...editForm.register("nickname")}
+                />
+                {editForm.formState.errors.nickname && (
+                  <p className="text-xs text-destructive">{editForm.formState.errors.nickname.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastFour">Last 4 digits</Label>
+                <Input
+                  id="edit-lastFour"
+                  placeholder="1234"
+                  maxLength={4}
+                  inputMode="numeric"
+                  {...editForm.register("lastFour")}
+                />
+                {editForm.formState.errors.lastFour && (
+                  <p className="text-xs text-destructive">{editForm.formState.errors.lastFour.message}</p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={closeAddCardModal}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={updateCard.isPending}
+                >
+                  {updateCard.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+                  ) : (
+                    "Save changes"
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

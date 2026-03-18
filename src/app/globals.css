@@ -1,26 +1,119 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* ── Base surfaces ── */
+    --background:          0 0% 100%;
+    --foreground:          222 47% 11%;
+
+    /* ── Card / popover ── */
+    --card:                0 0% 100%;
+    --card-foreground:     222 47% 11%;
+    --popover:             0 0% 100%;
+    --popover-foreground:  222 47% 11%;
+
+    /* ── Primary (slate-900 — used for text, headings) ── */
+    --primary:             222 47% 11%;
+    --primary-foreground:  210 40% 98%;
+
+    /* ── Secondary ── */
+    --secondary:           210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* ── Muted ── */
+    --muted:               210 40% 96%;
+    --muted-foreground:    215 16% 47%;
+
+    /* ── Accent (emerald-500 — #10b981) ── */
+    --accent:              160 84% 39%;
+    --accent-foreground:   0 0% 100%;
+
+    /* ── Semantic: destructive (red-500) ── */
+    --destructive:         0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Semantic: warning (amber-500) ── */
+    --warning:             38 92% 50%;
+    --warning-foreground:  0 0% 100%;
+
+    /* ── Sidebar (slate-900 / slate-800) ── */
+    --sidebar:             222 47% 11%;
+    --sidebar-foreground:  210 40% 98%;
+    --sidebar-muted:       215 25% 27%;
+    --sidebar-muted-foreground: 215 20% 65%;
+    --sidebar-border:      215 25% 20%;
+    --sidebar-accent:      160 84% 39%;
+
+    /* ── Chrome ── */
+    --border:              214 32% 91%;
+    --input:               214 32% 91%;
+    --ring:                160 84% 39%;
+    --radius:              0.5rem;
+  }
+
+  /* Dark mode keeps the same sidebar variables since the sidebar is always dark */
+  .dark {
+    --background:          222 47% 7%;
+    --foreground:          210 40% 98%;
+    --card:                222 47% 9%;
+    --card-foreground:     210 40% 98%;
+    --popover:             222 47% 9%;
+    --popover-foreground:  210 40% 98%;
+    --primary:             210 40% 98%;
+    --primary-foreground:  222 47% 11%;
+    --secondary:           217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted:               217 33% 17%;
+    --muted-foreground:    215 20% 65%;
+    --accent:              160 84% 39%;
+    --accent-foreground:   0 0% 100%;
+    --destructive:         0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --warning:             38 92% 50%;
+    --warning-foreground:  0 0% 100%;
+    --border:              217 33% 17%;
+    --input:               217 33% 17%;
+    --ring:                160 84% 39%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Smooth scrolling for the main content area */
+  .scroll-area {
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+@layer utilities {
+  /* Emerald accent helpers */
+  .text-accent        { color: hsl(var(--accent)); }
+  .bg-accent-subtle   { background-color: hsl(var(--accent) / 0.1); }
+  .border-accent      { border-color: hsl(var(--accent)); }
+
+  /* Warning helpers */
+  .text-warning       { color: hsl(var(--warning)); }
+  .bg-warning-subtle  { background-color: hsl(var(--warning) / 0.1); }
+
+  /* Sidebar helpers */
+  .bg-sidebar         { background-color: hsl(var(--sidebar)); }
+  .text-sidebar       { color: hsl(var(--sidebar-foreground)); }
+  .border-sidebar     { border-color: hsl(var(--sidebar-border)); }
 }

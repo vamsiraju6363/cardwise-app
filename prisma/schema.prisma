@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum CardNetwork {
+  VISA
+  MASTERCARD
+  AMEX
+  DISCOVER
+}
+
+enum RewardType {
+  CASHBACK
+  POINTS
+  MILES
+}
+
+enum CapPeriod {
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+}
+
+enum DataSource {
+  MANUAL
+  SCRAPED
+  USER_SUBMITTED
+}
+
+// ─── NextAuth Models ──────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts  Account[]
+  sessions  Session[]
+  userCards UserCard[]
+}
+
+// ─── Global Card Catalog ──────────────────────────────────────────────────────
+
+/// A credit card product in the global catalog, shared across all users.
+model Card {
+  id             String      @id @default(cuid())
+  issuer         String
+  cardName       String
+  network        CardNetwork
+  annualFee      Decimal     @default(0) @db.Decimal(10, 2)
+  rewardType     RewardType
+  baseRewardPct  Decimal     @db.Decimal(5, 4)
+  imageUrl       String?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  offers    Offer[]
+  userCards UserCard[]
+
+  @@index([issuer])
+  @@index([isActive])
+}
+
+/// A user's specific instance of a card from the catalog.
+model UserCard {
+  id       String   @id @default(cuid())
+  userId   String
+  cardId   String
+  nickname String?
+  lastFour String?  @db.Char(4)
+  isActive Boolean  @default(true)
+  addedAt  DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card          Card           @relation(fields: [cardId], references: [id])
+  spendTracking SpendTracking[]
+
+  @@unique([userId, cardId])
+  @@index([userId])
+  @@index([cardId])
+}
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+/// A spending category such as Groceries, Gas, Dining, Travel.
+/// Supports a single level of parent/child nesting (e.g. Travel > Airlines).
+model Category {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  slug             String  @unique
+  parentCategoryId String?
+  icon             String?
+  sortOrder        Int     @default(0)
+
+  parent   Category?  @relation("CategoryChildren", fields: [parentCategoryId], references: [id])
+  children Category[] @relation("CategoryChildren")
+  stores   Store[]
+  offers   Offer[]
+
+  @@index([parentCategoryId])
+  @@index([sortOrder])
+}
+
+// ─── Stores ───────────────────────────────────────────────────────────────────
+
+/// A merchant/store that maps to a spending category.
+model Store {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  categoryId     String
+  websiteDomain  String?
+  logoUrl        String?
+  merchantMcc    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+  offers   Offer[]
+
+  @@index([categoryId])
+  @@index([name])
+  @@index([slug])
+}
+
+// ─── Offers ───────────────────────────────────────────────────────────────────
+
+/// A reward offer: ties a Card to either a specific Store or a whole Category.
+/// At least one of storeId or categoryId must be non-null (enforced in application layer).
+model Offer {
+  id               String     @id @default(cuid())
+  cardId           String
+  storeId          String?
+  categoryId       String?
+  rewardPct        Decimal    @db.Decimal(5, 4)
+  rewardType       RewardType
+  capAmount        Decimal?   @db.Decimal(10, 2)
+  capPeriod        CapPeriod?
+  bonusDescription String?
+  validFrom        DateTime   @default(now())
+  validUntil       DateTime?
+  isActive         Boolean    @default(true)
+  dataSource       DataSource @default(MANUAL)
+  lastVerifiedAt   DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  card          Card            @relation(fields: [cardId], references: [id])
+  store         Store?          @relation(fields: [storeId], references: [id])
+  category      Category?       @relation(fields: [categoryId], references: [id])
+  spendTracking SpendTracking[]
+
+  @@index([cardId])
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+// ─── Spend Tracking ───────────────────────────────────────────────────────────
+
+/// Tracks a user's spend against a specific offer's cap for a given period.
+model SpendTracking {
+  id          String   @id @default(cuid())
+  userCardId  String
+  offerId     String
+  periodStart DateTime
+  periodEnd   DateTime
+  amountSpent Decimal  @default(0) @db.Decimal(10, 2)
+  capHit      Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  offer    Offer    @relation(fields: [offerId], references: [id])
+
+  @@unique([userCardId, offerId, periodStart])
+  @@index([userCardId])
+  @@index([offerId])
+}
