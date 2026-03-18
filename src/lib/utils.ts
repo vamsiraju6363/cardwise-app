@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { RewardType, CapPeriod } from "@/types/card.types";
+import type { RewardType } from "@/types/card.types";
+import type { CapPeriod } from "@/types/offer.types";
 
 // ─── Image placeholder ────────────────────────────────────────────────────────
 
