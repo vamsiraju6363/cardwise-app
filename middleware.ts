@@ -27,15 +27,7 @@ export default auth(function middleware(req: NextAuthRequest) {
 });
 
 export const config = {
-  /*
-   * Run middleware on all paths except:
-   * - _next/static  (static files)
-   * - _next/image   (image optimisation)
-   * - favicon.ico
-   * - public folder image assets
-   * - /api/auth     (NextAuth's own API routes — handled internally)
-   */
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|api/auth|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)",
   ],
 };
