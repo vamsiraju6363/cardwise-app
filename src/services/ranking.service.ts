@@ -354,7 +354,15 @@ export class RankingService {
     const store = await StoreService.getStoreById(storeId);
     if (!store) return null;
 
-    const userCards = await CardService.getUserCards(userId);
+    const userCardsRaw = await CardService.getUserCards(userId);
+    const userCards = userCardsRaw.map((uc) => ({
+       ...uc,
+       card: {
+        ...uc.card,
+        baseRewardPct: Number(uc.card.baseRewardPct),
+        annualFee:     Number(uc.card.annualFee),
+       },
+    }));
     if (userCards.length === 0) {
       return { store, rankedCards: [], totalOffersFound: 0, message: "no_cards" };
     }
