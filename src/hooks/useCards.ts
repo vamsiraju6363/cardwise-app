@@ -142,10 +142,11 @@ export function useRemoveCard() {
     mutationFn: removeCardFn,
     onMutate: async (userCardId) => {
       await queryClient.cancelQueries({ queryKey: USER_CARDS_KEY });
-      const previous = queryClient.getQueryData(USER_CARDS_KEY) as unknown[] | undefined;
-      queryClient.setQueryData(USER_CARDS_KEY, (old: unknown[] | undefined) =>
-        (old ?? []).filter((uc: { id: string }) => uc.id !== userCardId),
-      );
+      const previous = queryClient.getQueryData(USER_CARDS_KEY);
+      queryClient.setQueryData(USER_CARDS_KEY, (old: unknown) => {
+       if (!Array.isArray(old)) return old;
+       return old.filter((uc: { id: string }) => uc.id !== userCardId);
+      });
       return { previous };
     },
     onError: (err: Error, _userCardId, context) => {
