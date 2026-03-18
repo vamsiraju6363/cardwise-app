@@ -45,8 +45,7 @@ function LoginForm() {
     if (result?.error) {
       setAuthError("Invalid email or password.");
     } else {
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   }
 
