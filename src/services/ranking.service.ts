@@ -394,7 +394,6 @@ export class RankingService {
       card: {
         ...o.card,
         baseRewardPct: Number(o.card.baseRewardPct),
-        annualFee:     Number(o.card.annualFee),
       },
     }));
 
