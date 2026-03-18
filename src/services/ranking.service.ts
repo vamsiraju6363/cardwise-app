@@ -405,7 +405,11 @@ export class RankingService {
       },
     }));
 
-    const rankedCards = rankCards(offersWithRelevance, userCards, trackingRecords);
+    const trackingRecordsCast = trackingRecords.map((t) => ({
+      ...t,
+      amountSpent: Number(t.amountSpent),
+    }));
+    const rankedCards = rankCards(offersWithRelevance, userCards, trackingRecordsCast);
 
     return {
       store,
