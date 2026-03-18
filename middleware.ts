@@ -5,9 +5,15 @@ import { getToken } from "next-auth/jwt";
 const PUBLIC_PATHS = ["/login", "/register"];
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const { pathname } = req.nextUrl;
+  const token = await getToken({ 
+    req, 
+    secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+    cookieName: process.env.NODE_ENV === "production" 
+      ? "__Secure-authjs.session-token" 
+      : "authjs.session-token",
+  });
 
+  const { pathname } = req.nextUrl;
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   if (!token && !isPublicPath) {
