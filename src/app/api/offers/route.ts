@@ -27,6 +27,10 @@ export async function POST(request: Request) {
       { status: 422 }
     );
   }
-  const record = await TrackerService.upsertSpendTracking(parsed.data);
+  const record = await TrackerService.upsertSpendTracking(
+    parsed.data.userCardId,
+    parsed.data.offerId,
+    parsed.data.amountSpent
+  );
   return NextResponse.json(record, { status: 201 });
 }
