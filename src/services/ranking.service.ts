@@ -388,9 +388,14 @@ export class RankingService {
     // and the relevanceType can be derived from storeId presence
     const offersWithRelevance: OfferWithRelevance[] = offersRaw.map((o) => ({
       ...o,
-      rewardPct:   Number(o.rewardPct),
-      capAmount:   o.capAmount   ? Number(o.capAmount)   : null,
-      relevanceType: o.storeId ? "store_specific" : "category_wide",
+      rewardPct:      Number(o.rewardPct),
+      capAmount:      o.capAmount ? Number(o.capAmount) : null,
+      relevanceType:  o.storeId ? "store_specific" : "category_wide",
+      card: {
+        ...o.card,
+        baseRewardPct: Number(o.card.baseRewardPct),
+        annualFee:     Number(o.card.annualFee),
+      },
     }));
 
     const rankedCards = rankCards(offersWithRelevance, userCards, trackingRecords);
