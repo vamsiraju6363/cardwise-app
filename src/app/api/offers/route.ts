@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const body: unknown = await request.json();
   const parsed = SpendTrackingUpsertSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResp.json(
+    return NextResponse.json(
       { message: "Validation error", errors: parsed.error.flatten().fieldErrors },
       { status: 422 }
     );
