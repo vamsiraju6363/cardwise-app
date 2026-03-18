@@ -109,7 +109,7 @@ interface StoreSearchProps {
   navigateOnSelect?: boolean;
   className?: string;
   /** Ref to focus the search input (e.g. for "/" keyboard shortcut). */
-  inputRef?: React.RefObject<HTMLInputElement | null>;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 /**
@@ -222,7 +222,7 @@ export function StoreSearch({ onStoreSelect, navigateOnSelect = false, className
           )}
         />
         <input
-          ref={inputRef}
+          ref={internalRef}
           type="text"
           role="combobox"
           aria-expanded={isDropdownOpen}
