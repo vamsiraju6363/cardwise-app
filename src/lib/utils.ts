@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge";
 import type { RewardType } from "@/types/card.types";
 import type { CapPeriod } from "@/types/offer.types";
 
+
 // ─── Image placeholder ────────────────────────────────────────────────────────
 
 /** Base64 blur placeholder for next/image (gray 10x10). */
