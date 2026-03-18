@@ -328,7 +328,7 @@ export class RankingService {
     recommendations.sort((a, b) => b.effectiveRewardPct - a.effectiveRewardPct);
 
     return {
-      store: { ...store, matchScore: 100, category: { ...store.category, parentCategoryId: store.category.parentCategoryId ?? null } },
+      store: { ...store, matchScore: 100 },
       recommendations,
       generatedAt: new Date(),
     };

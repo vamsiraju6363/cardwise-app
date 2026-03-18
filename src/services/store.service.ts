@@ -20,6 +20,7 @@ const storeWithCategorySelect = {
       slug:     true,
       icon:     true,
       sortOrder: true,
+      parentCategoryId: true,
     },
   },
 } as const;
