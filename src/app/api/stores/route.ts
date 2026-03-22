@@ -3,19 +3,15 @@ import { auth } from "@/lib/auth";
 import { StoreService } from "@/services/store.service";
 import { z } from "zod";
 
-// Inline schema: accepts both "q" and "query" for client flexibility,
-// enforces min 2 chars per spec, caps at 100.
 const storeQuerySchema = z.object({
-  q: z
-    .string()
-    .min(2, "Query must be at least 2 characters")
-    .max(100, "Query must be 100 characters or fewer")
-    .trim(),
+  q: z.string().max(100).trim().optional(),
+  category: z.string().max(50).trim().optional(),
 });
 
 /**
- * GET /api/stores?q=Target — searches stores by name and domain.
- * Returns up to 8 StoreSearchResult items sorted by relevance.
+ * GET /api/stores — search stores or browse by category.
+ * - ?q=Target — search by name/domain (min 2 chars)
+ * - ?category=groceries — list stores in that category
  */
 export async function GET(request: Request) {
   const session = await auth();
@@ -24,11 +20,10 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-
-  // Accept "q" (spec) or "query" (legacy client alias)
   const rawQuery = searchParams.get("q") ?? searchParams.get("query") ?? "";
+  const category = searchParams.get("category") ?? "";
 
-  const parsed = storeQuerySchema.safeParse({ q: rawQuery });
+  const parsed = storeQuerySchema.safeParse({ q: rawQuery, category });
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Validation error", errors: parsed.error.flatten().fieldErrors },
@@ -37,9 +32,22 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await StoreService.searchStores(parsed.data.q, 8);
-    return NextResponse.json(results);
+    if (parsed.data.category) {
+      const results = await StoreService.getStoresByCategorySlug(
+        parsed.data.category,
+        12,
+      );
+      return NextResponse.json(results);
+    }
+    if (parsed.data.q && parsed.data.q.length >= 2) {
+      const results = await StoreService.searchStores(parsed.data.q, 8);
+      return NextResponse.json(results);
+    }
+    return NextResponse.json([]);
   } catch {
-    return NextResponse.json({ message: "Failed to search stores" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Failed to fetch stores" },
+      { status: 500 },
+    );
   }
 }

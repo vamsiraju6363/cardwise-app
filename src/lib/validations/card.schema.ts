@@ -3,16 +3,20 @@ import { z } from "zod";
 // ─── Shared field definitions ─────────────────────────────────────────────────
 
 const nicknameField = z
-  .string()
-  .min(1, "Nickname cannot be empty")
-  .max(30, "Nickname must be 30 characters or fewer")
-  .optional();
+  .union([
+    z.literal(""),
+    z.string().min(1, "Nickname cannot be empty").max(30, "Nickname must be 30 characters or fewer"),
+  ])
+  .optional()
+  .transform((val) => (val === "" ? undefined : val));
 
 const lastFourField = z
-  .string()
-  .length(4, "Must be exactly 4 digits")
-  .regex(/^\d{4}$/, "Must be 4 numeric digits")
-  .optional();
+  .union([
+    z.literal(""),
+    z.string().length(4, "Must be exactly 4 digits").regex(/^\d{4}$/, "Must be 4 numeric digits"),
+  ])
+  .optional()
+  .transform((val) => (val === "" ? undefined : val));
 
 // ─── Add card ─────────────────────────────────────────────────────────────────
 
@@ -37,17 +41,19 @@ export const AddUserCardSchema = z.object({
 
 export const updateCardSchema = z.object({
   nickname: z
-    .string()
-    .min(1, "Nickname cannot be empty")
-    .max(30, "Nickname must be 30 characters or fewer")
-    .nullable()
-    .optional(),
+    .union([
+      z.literal(""),
+      z.string().min(1, "Nickname cannot be empty").max(30, "Nickname must be 30 characters or fewer"),
+    ])
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
   lastFour: z
-    .string()
-    .length(4, "Must be exactly 4 digits")
-    .regex(/^\d{4}$/, "Must be 4 numeric digits")
-    .nullable()
-    .optional(),
+    .union([
+      z.literal(""),
+      z.string().length(4, "Must be exactly 4 digits").regex(/^\d{4}$/, "Must be 4 numeric digits"),
+    ])
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
   isActive: z.boolean().optional(),
 });
 

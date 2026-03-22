@@ -6,6 +6,7 @@ import { StoreSearch } from "@/components/store/StoreSearch";
 import { RecommendationList } from "@/components/store/RecommendationList";
 import { useSearchStore } from "@/stores/useSearchStore";
 import { useUserCards } from "@/hooks/useCards";
+import { useStoresByCategory } from "@/hooks/useStoreSearch";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { cn, BLUR_DATA_URL } from "@/lib/utils";
 import {
@@ -82,10 +83,11 @@ function RecentSearchesSection({ recentSearches, onSelect, onClear }: RecentSear
 // ─── Browse by category section ───────────────────────────────────────────────
 
 interface BrowseCategoriesProps {
-  onCategoryClick: (slug: string, name: string) => void;
+  browseCategory: string | null;
+  onCategoryClick: (slug: string) => void;
 }
 
-function BrowseCategories({ onCategoryClick }: BrowseCategoriesProps) {
+function BrowseCategories({ browseCategory, onCategoryClick }: BrowseCategoriesProps) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -95,15 +97,73 @@ function BrowseCategories({ onCategoryClick }: BrowseCategoriesProps) {
         {CATEGORIES.map(({ slug, name, icon: Icon, color }) => (
           <button
             key={slug}
-            onClick={() => onCategoryClick(slug, name)}
+            onClick={() => onCategoryClick(slug)}
             className={cn(
-              "flex flex-col items-center gap-2 p-4 rounded-2xl border border-transparent",
-              "transition-all duration-150 cursor-pointer",
+              "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-150 cursor-pointer",
+              browseCategory === slug
+                ? "border-emerald-400 ring-2 ring-emerald-500/20"
+                : "border-transparent",
               color,
             )}
           >
             <Icon className="h-6 w-6" />
             <span className="text-xs font-medium text-center leading-tight">{name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Category stores list (shown when a category is selected) ───────────────────
+
+interface CategoryStoresListProps {
+  categorySlug: string;
+  categoryName: string;
+  stores: StoreSearchResult[];
+  isLoading: boolean;
+  onSelect: (store: StoreSearchResult) => void;
+}
+
+function CategoryStoresList({
+  categorySlug,
+  categoryName,
+  stores,
+  isLoading,
+  onSelect,
+}: CategoryStoresListProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <span className="inline-block h-6 w-6 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+  if (stores.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6">
+        No stores found in {categoryName}.
+      </p>
+    );
+  }
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        Stores in {categoryName}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {stores.map((store) => (
+          <button
+            key={store.id}
+            onClick={() => onSelect(store)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200",
+              "bg-white hover:border-emerald-300 hover:bg-emerald-50",
+              "text-sm text-gray-700 transition-all duration-150",
+            )}
+          >
+            <Store className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+            <span className="font-medium">{store.name}</span>
           </button>
         ))}
       </div>
@@ -163,9 +223,12 @@ function SelectedStoreHeader({
  */
 export default function DiscoverPage() {
   const [selectedStore, setSelectedStore] = useState<StoreSearchResult | null>(null);
+  const [browseCategory, setBrowseCategory] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { recentSearches, clearRecentSearches, selectStore } = useSearchStore();
   const { data: userCards } = useUserCards();
+  const { data: categoryStores, isFetching: isLoadingCategory } =
+    useStoresByCategory(browseCategory);
   const openAddModal = useWalletStore((s) => s.openAddModal);
 
   const hasNoCards = (userCards ?? []).length === 0;
@@ -194,11 +257,8 @@ export default function DiscoverPage() {
     selectStore(null);
   }
 
-  function handleCategoryClick(_slug: string, name: string) {
-    // Pre-fill the search with the category name so the user can refine
-    // (the StoreSearch component manages its own input state)
-    // This is a light UX hint — a full category browse page could be added later
-    console.info(`Browse category: ${name}`);
+  function handleCategoryClick(slug: string) {
+    setBrowseCategory((prev) => (prev === slug ? null : slug));
   }
 
   const showPreSearch = !selectedStore;
@@ -249,7 +309,22 @@ export default function DiscoverPage() {
             onSelect={handleStoreSelect}
             onClear={clearRecentSearches}
           />
-          <BrowseCategories onCategoryClick={handleCategoryClick} />
+          <BrowseCategories
+            browseCategory={browseCategory}
+            onCategoryClick={handleCategoryClick}
+          />
+          {browseCategory && (
+            <CategoryStoresList
+              categorySlug={browseCategory}
+              categoryName={CATEGORIES.find((c) => c.slug === browseCategory)?.name ?? browseCategory}
+              stores={categoryStores ?? []}
+              isLoading={isLoadingCategory}
+              onSelect={(store) => {
+                handleStoreSelect(store);
+                setBrowseCategory(null);
+              }}
+            />
+          )}
         </div>
       )}
 

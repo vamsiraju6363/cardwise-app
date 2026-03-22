@@ -103,6 +103,27 @@ export class StoreService {
   }
 
   /**
+   * Returns stores in a given category (by slug). Used for browse-by-category.
+   */
+  static async getStoresByCategorySlug(categorySlug: string, limit = 12) {
+    try {
+      const stores = await prisma.store.findMany({
+        where: {
+          isActive: true,
+          category: { slug: categorySlug },
+        },
+        select: storeWithCategorySelect,
+        orderBy: { name: "asc" },
+        take: limit,
+      });
+      return stores;
+    } catch (err) {
+      console.error("[StoreService.getStoresByCategorySlug]", err);
+      throw err;
+    }
+  }
+
+  /**
    * Returns all active stores ordered by name — for browse/autocomplete.
    */
   static async getAllStores() {
