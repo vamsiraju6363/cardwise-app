@@ -20,13 +20,13 @@ Deploy CardWise to **Vercel** (frontend + API) with **Supabase** (PostgreSQL).
 
    **Important:** Use the **Transaction** pooler for `DATABASE_URL`, not the Session pooler. Prisma with serverless Vercel functions needs transaction mode, not session mode. It's easy to grab the wrong one from the Supabase dashboard.
 
-   Format:
+   Format (note: DIRECT_URL uses a **different host** — `db.xxx.supabase.co`, not pooler):
    ```
-   DATABASE_URL = postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
-   DIRECT_URL   = postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+   DATABASE_URL = postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
+   DIRECT_URL   = postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
    ```
 
-   Or use the **Connection string** tab and switch between **URI** (pooled) and **Direct connection**.
+   Copy each from Supabase → Project Settings → Database → **Connection string** tab (URI for Transaction mode, and **Direct connection** for DIRECT_URL).
 
 ---
 
@@ -85,9 +85,9 @@ See `.env.example` for the full template.
 Before or after the first deploy, run migrations against the production database. Use your Supabase URLs:
 
 ```bash
-# Pooled (6543) for DATABASE_URL, Direct (5432) for DIRECT_URL
-DATABASE_URL="postgresql://postgres.[ref]:[password]@...pooler.supabase.com:6543/postgres" \
-DIRECT_URL="postgresql://postgres.[ref]:[password]@...pooler.supabase.com:5432/postgres" \
+# DATABASE_URL = Transaction pooler (6543). DIRECT_URL = Direct connection (db.xxx.supabase.co)
+DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres" \
+DIRECT_URL="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres" \
 npx prisma migrate deploy
 ```
 
@@ -104,7 +104,27 @@ DATABASE_URL="<DIRECT_URL>" DIRECT_URL="<DIRECT_URL>" npx prisma db seed
 
 ---
 
-## 7. Google OAuth (When Ready)
+## 7. Troubleshooting Connection Errors
+
+### P1001: Can't reach database server
+
+- **Project paused** — Supabase free tier pauses projects after inactivity. Go to [supabase.com](https://supabase.com) → your project → click **Restore** if it shows "Paused".
+- **Wrong DIRECT_URL** — The direct connection uses `db.[project-ref].supabase.co`, **not** `pooler.supabase.com`. Get it from Project Settings → Database → Connection string → **Direct connection**.
+- **Wrong port** — Transaction pooler = 6543. Direct = 5432 (on `db.xxx.supabase.co`).
+
+### P1000: Authentication failed
+
+- **Wrong password** — Use the database password from Project Settings → Database (or reset it).
+- **URL-encode special characters** — If your password has `@`, `#`, `%`, etc., encode them (e.g. `%40` for `@`).
+
+### Connection works locally but fails on Vercel
+
+- Ensure `DATABASE_URL` uses **Transaction** pooler (port 6543), not Session.
+- Add `?pgbouncer=true` to `DATABASE_URL` when using the pooler with Prisma.
+
+---
+
+## 8. Google OAuth (When Ready)
 
 When enabling Google login:
 

@@ -26,7 +26,8 @@ async function fetchUserCards(includeInactive = false) {
 async function fetchAllCards() {
   const res = await fetch("/api/cards/catalog");
   if (!res.ok) throw new Error("Failed to fetch card catalog");
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data.cards ?? []);
 }
 
 async function addCardFn(data: AddUserCardInput) {
