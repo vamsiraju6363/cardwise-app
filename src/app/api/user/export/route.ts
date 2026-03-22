@@ -29,11 +29,7 @@ export async function GET() {
             network: true,
             annualFee: true,
             rewardType: true,
-          },
-        },
-        offers: {
-          include: {
-            store: { select: { name: true, category: { select: { name: true } } } },
+            _count: { select: { offers: true } },
           },
         },
       },
@@ -68,14 +64,17 @@ export async function GET() {
           createdAt: user.createdAt,
         }
       : null,
-    wallet: userCards.map((uc) => ({
-      id: uc.id,
-      nickname: uc.nickname,
-      lastFour: uc.lastFour,
-      isActive: uc.isActive,
-      card: uc.card,
-      offersCount: uc.offers.length,
-    })),
+    wallet: userCards.map((uc) => {
+      const { _count, ...card } = uc.card;
+      return {
+        id: uc.id,
+        nickname: uc.nickname,
+        lastFour: uc.lastFour,
+        isActive: uc.isActive,
+        card,
+        offersCount: _count.offers,
+      };
+    }),
     spendTracking: tracking.map((t) => ({
       card: t.userCard.card,
       store: t.offer.store?.name ?? null,
