@@ -71,13 +71,7 @@ export function rankCards(
     trackingIndex.set(`${t.userCardId}:${t.offerId}`, t);
   }
 
-  // Build a map from userCardId → UserCard for quick lookup
-  const userCardMap = new Map<string, UserCard>();
-  for (const uc of userCards) {
-    userCardMap.set(uc.id, uc);
-  }
-
-  // Group offers by userCardId
+  // Group offers by userCardId (cards without offers get empty array — we still show base rate)
   const offersByUserCard = new Map<string, OfferWithRelevance[]>();
   for (const offer of offersForStore) {
     if (!offer.userCardId) continue;
@@ -88,9 +82,10 @@ export function rankCards(
 
   const ranked: RankedCard[] = [];
 
-  for (const [userCardId, cardOffers] of offersByUserCard) {
-    const userCard = userCardMap.get(userCardId);
-    if (!userCard) continue;
+  // Include ALL user cards, not just those with offers — cards without offers show base rate
+  for (const userCard of userCards) {
+    const userCardId = userCard.id;
+    const cardOffers = offersByUserCard.get(userCardId) ?? [];
     const card = userCard.card;
 
     // ── Find the best offer ──────────────────────────────────────────────────
