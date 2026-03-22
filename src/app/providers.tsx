@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ThemeProvider } from "next-themes";
 import { SessionProvider } from "next-auth/react";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,7 +12,7 @@ interface ProvidersProps {
 }
 
 /**
- * Root client-side providers: React Query, NextAuth session, and toast notifications.
+ * Root client-side providers: React Query, NextAuth session, theme, and toast notifications.
  */
 export function Providers({ children }: ProvidersProps) {
   const [queryClient] = useState(
@@ -28,13 +29,15 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        {children}
-        <Toaster />
-        {process.env.NODE_ENV === "development" && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
-      </QueryClientProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <QueryClientProvider client={queryClient}>
+          {children}
+          <Toaster />
+          {process.env.NODE_ENV === "development" && (
+            <ReactQueryDevtools initialIsOpen={false} />
+          )}
+        </QueryClientProvider>
+      </ThemeProvider>
     </SessionProvider>
   );
 }

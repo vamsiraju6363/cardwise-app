@@ -30,7 +30,7 @@ export function MobileNav() {
         "md:hidden",
         "fixed bottom-0 inset-x-0 z-50",
         "flex items-stretch",
-        "bg-white border-t border-gray-200",
+        "bg-background border-t border-border",
         "h-16",
         // Safe area inset for notched phones
         "pb-[env(safe-area-inset-bottom)]",
@@ -51,7 +51,7 @@ export function MobileNav() {
               "text-[10px] font-medium transition-colors duration-150",
               isActive
                 ? "text-emerald-600"
-                : "text-gray-400 hover:text-gray-600",
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Icon

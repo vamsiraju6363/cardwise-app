@@ -57,17 +57,17 @@ export function NavbarSearch() {
       {/* ── Input ── */}
       <div
         className={cn(
-          "flex items-center gap-2 h-9 px-3 rounded-lg border bg-gray-50",
+          "flex items-center gap-2 h-9 px-3 rounded-lg border bg-muted/50",
           "transition-all duration-150",
           isOpen
-            ? "border-emerald-400 ring-2 ring-emerald-500/20 bg-white"
-            : "border-gray-200 hover:border-gray-300",
+            ? "border-emerald-400 ring-2 ring-emerald-500/20 bg-background"
+            : "border-input hover:border-border",
         )}
       >
         <Search
           className={cn(
             "h-3.5 w-3.5 shrink-0 transition-colors",
-            isOpen ? "text-emerald-500" : "text-gray-400",
+            isOpen ? "text-emerald-500" : "text-muted-foreground",
           )}
         />
         <input
@@ -89,14 +89,14 @@ export function NavbarSearch() {
             }
           }}
           placeholder="Search stores…"
-          className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none min-w-0"
+          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none min-w-0"
           autoComplete="off"
           spellCheck={false}
         />
         {inputValue && (
           <button
             onClick={handleClear}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
             tabIndex={-1}
             aria-label="Clear search"
           >
@@ -110,19 +110,19 @@ export function NavbarSearch() {
         <div
           className={cn(
             "absolute top-full left-0 right-0 mt-1.5 z-50",
-            "bg-white rounded-lg border border-gray-200 shadow-lg",
+            "bg-popover rounded-lg border border-border shadow-lg",
             "overflow-hidden",
           )}
         >
           {isFetching && !hasResults && (
-            <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
               Searching…
             </div>
           )}
 
           {!isFetching && !hasResults && (
-            <div className="px-4 py-3 text-sm text-gray-400">
+            <div className="px-4 py-3 text-sm text-muted-foreground">
               No stores found for &ldquo;{debouncedQuery}&rdquo;
             </div>
           )}
@@ -139,17 +139,17 @@ export function NavbarSearch() {
                     }}
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-2.5 text-left",
-                      "hover:bg-emerald-50 transition-colors duration-100",
+                      "hover:bg-accent/10 transition-colors duration-100",
                     )}
                   >
-                    <div className="flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 shrink-0">
-                      <Store className="h-3.5 w-3.5 text-gray-500" />
+                    <div className="flex items-center justify-center w-7 h-7 rounded-md bg-muted shrink-0">
+                      <Store className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {store.name}
                       </p>
-                      <p className="text-xs text-gray-400 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {store.category.name}
                         {store.websiteDomain && ` · ${store.websiteDomain}`}
                       </p>

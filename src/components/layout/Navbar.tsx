@@ -35,7 +35,7 @@ export function Navbar({ user }: NavbarProps) {
     : (user.email?.[0] ?? "?").toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 flex items-center gap-3 h-14 px-4 md:px-8 bg-white/95 backdrop-blur-sm border-b border-gray-100 shrink-0">
+    <header className="sticky top-0 z-40 flex items-center gap-3 h-14 px-4 md:px-8 bg-background/95 backdrop-blur-sm border-b border-border shrink-0">
       {/* ── Global store search (client component) ── */}
       <div className="flex-1 max-w-sm">
         <NavbarSearch />
