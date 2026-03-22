@@ -24,9 +24,9 @@ import {
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { href: "/",        label: "Find a Store",      icon: Search    },
-  { href: "/wallet",  label: "My Wallet",          icon: CreditCard },
-  { href: "/tracker", label: "Spending Tracker",   icon: BarChart3  },
+  { href: "/discover", label: "Find a Store",      icon: Search    },
+  { href: "/wallet",   label: "My Wallet",         icon: CreditCard },
+  { href: "/tracker",  label: "Spending Tracker",  icon: BarChart3  },
   { href: "/settings", label: "Settings",          icon: Settings   },
 ] as const;
 
@@ -82,7 +82,9 @@ export function Sidebar({ user }: SidebarProps) {
         </p>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+            href === "/discover"
+              ? pathname === "/discover"
+              : pathname.startsWith(href);
 
           return (
             <Link

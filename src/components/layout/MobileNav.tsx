@@ -8,7 +8,7 @@ import { Search, CreditCard, BarChart3, Settings } from "lucide-react";
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { href: "/",         label: "Search",  icon: Search    },
+  { href: "/discover", label: "Search",  icon: Search    },
   { href: "/wallet",   label: "Wallet",  icon: CreditCard },
   { href: "/tracker",  label: "Tracker", icon: BarChart3  },
   { href: "/settings", label: "Settings", icon: Settings  },
@@ -38,7 +38,9 @@ export function MobileNav() {
     >
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const isActive =
-          href === "/" ? pathname === "/" : pathname.startsWith(href);
+          href === "/discover"
+            ? pathname === "/discover"
+            : pathname.startsWith(href);
 
         return (
           <Link

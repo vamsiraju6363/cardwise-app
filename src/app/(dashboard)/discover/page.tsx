@@ -159,9 +159,9 @@ function SelectedStoreHeader({
 // ─── Home page ────────────────────────────────────────────────────────────────
 
 /**
- * Home dashboard page — the primary store search and recommendation experience.
+ * Find a Store — store search and card recommendations (was unreachable at `/` while root redirects to wallet).
  */
-export default function DashboardPage() {
+export default function DiscoverPage() {
   const [selectedStore, setSelectedStore] = useState<StoreSearchResult | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { recentSearches, clearRecentSearches, selectStore } = useSearchStore();
