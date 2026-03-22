@@ -26,7 +26,15 @@ function LoginForm() {
   const router         = useRouter();
   const searchParams   = useSearchParams();
   const justRegistered = searchParams.get("registered") === "true";
+  const oauthError     = searchParams.get("error");
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const oauthErrorMessage =
+    oauthError === "OAuthAccountNotLinked"
+      ? "This Google account uses the same email as an existing account. Try signing in with email/password, or try again — we’ll link your accounts."
+      : oauthError
+        ? "Sign-in failed. Please try again."
+        : null;
 
   const {
     register,
@@ -64,6 +72,12 @@ function LoginForm() {
           {justRegistered && (
             <p className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700 text-center">
               Account created! Sign in below.
+            </p>
+          )}
+
+          {oauthErrorMessage && (
+            <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 text-center">
+              {oauthErrorMessage}
             </p>
           )}
 
