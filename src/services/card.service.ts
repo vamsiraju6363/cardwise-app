@@ -13,7 +13,7 @@ function syntheticCard(raw: {
   customIssuer?: string | null;
   customCardName?: string | null;
   customNetwork?: string | null;
-  customBaseRewardPct?: { toString?: () => string } | number | null;
+  customBaseRewardPct?: unknown;
   customRewardType?: string | null;
   addedAt: Date;
 }) {
@@ -44,7 +44,7 @@ function normalizeUserCard<T extends { card?: unknown; id: string; addedAt: Date
     customIssuer: (raw as { customIssuer?: string | null }).customIssuer,
     customCardName: (raw as { customCardName?: string | null }).customCardName,
     customNetwork: (raw as { customNetwork?: string | null }).customNetwork,
-    customBaseRewardPct: (raw as { customBaseRewardPct?: unknown }).customBaseRewardPct,
+    customBaseRewardPct: (raw as Record<string, unknown>).customBaseRewardPct,
     customRewardType: (raw as { customRewardType?: string | null }).customRewardType,
     addedAt: raw.addedAt,
   });
