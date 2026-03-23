@@ -26,13 +26,14 @@ export interface Card {
 }
 
 /**
- * A user's specific instance of a card from the catalog.
- * Includes the nested catalog Card and a count of active offers.
+ * A user's specific instance of a card — from the catalog or custom.
+ * Includes the nested catalog Card (or synthetic for custom) and a count of active offers.
+ * cardId is null for custom cards.
  */
 export interface UserCard {
   id:               string;
   userId:           string;
-  cardId:           string;
+  cardId:           string | null;
   nickname:         string | null;
   lastFour:         string | null;
   isActive:         boolean;
