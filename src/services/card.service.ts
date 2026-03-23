@@ -35,9 +35,20 @@ function syntheticCard(raw: {
 }
 
 /** Ensures every UserCard has a card object (synthetic for custom cards). */
-function normalizeUserCard<T extends { card?: unknown; id: string }>(raw: T): T & { card: NonNullable<T["card"]> } {
+function normalizeUserCard<T extends { card?: unknown; id: string; addedAt: Date }>(
+  raw: T,
+): T & { card: NonNullable<T["card"]> } {
   if (raw.card) return raw as T & { card: NonNullable<T["card"]> };
-  return { ...raw, card: syntheticCard(raw as Parameters<typeof syntheticCard>[0]) } as T & { card: ReturnType<typeof syntheticCard> };
+  const card = syntheticCard({
+    id: raw.id,
+    customIssuer: (raw as { customIssuer?: string | null }).customIssuer,
+    customCardName: (raw as { customCardName?: string | null }).customCardName,
+    customNetwork: (raw as { customNetwork?: string | null }).customNetwork,
+    customBaseRewardPct: (raw as { customBaseRewardPct?: unknown }).customBaseRewardPct,
+    customRewardType: (raw as { customRewardType?: string | null }).customRewardType,
+    addedAt: raw.addedAt,
+  });
+  return { ...raw, card } as T & { card: ReturnType<typeof syntheticCard> };
 }
 
 // ─── Shared selects ───────────────────────────────────────────────────────────
