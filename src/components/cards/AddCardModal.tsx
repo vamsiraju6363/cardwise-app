@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Search, ArrowLeft, Loader2, PlusCircle } from "lucide-react";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { useAddCard, useUpdateCard, useAllCards } from "@/hooks/useCards";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   addCardSchema,
   addCustomCardSchema,
@@ -178,6 +179,27 @@ export function AddCardModal() {
     }
   }, [isAddCardModalOpen, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const watchIssuer   = customForm.watch("issuer") ?? "";
+  const watchCardName = customForm.watch("cardName") ?? "";
+  const debouncedIssuer   = useDebounce(watchIssuer.trim(), 300);
+  const debouncedCardName = useDebounce(watchCardName.trim(), 300);
+
+  /** Catalog matches when in custom step — search as user types issuer + card name. */
+  const catalogMatchesInCustom = useMemo(() => {
+    if (step !== "custom") return [];
+    const cards = (catalogCards ?? []) as CatalogCard[];
+    const i = debouncedIssuer.toLowerCase();
+    const n = debouncedCardName.toLowerCase();
+    if (i.length < 2 && n.length < 2) return [];
+    return cards.filter((c) => {
+      const ci = c.issuer.toLowerCase();
+      const cn = c.cardName.toLowerCase();
+      const issuerMatch  = i.length >= 2 && (ci.includes(i) || i.includes(ci));
+      const cardNameMatch = n.length >= 2 && (cn.includes(n) || n.includes(cn));
+      return issuerMatch && cardNameMatch;
+    });
+  }, [step, catalogCards, debouncedIssuer, debouncedCardName]);
+
   // ── Catalog grouped by issuer ──
   const groupedCatalog = useMemo(() => {
     const cards = (catalogCards ?? []) as CatalogCard[];
@@ -260,7 +282,7 @@ export function AddCardModal() {
               : step === "pick"
               ? "Choose a card from the catalog or add one not listed."
               : step === "custom"
-              ? "Add any card not in our catalog. It will earn its base rate everywhere."
+              ? "Search by typing issuer and card name — we'll suggest catalog matches with full offers if we have them."
               : "Optionally give your card a nickname and enter the last 4 digits."}
           </DialogDescription>
         </DialogHeader>
@@ -346,6 +368,51 @@ export function AddCardModal() {
           {/* ── Custom card form ── */}
           {!isEditing && step === "custom" && (
             <form onSubmit={customForm.handleSubmit(handleAddCustom)} className="space-y-4">
+              {/* Catalog match hint — when user's typing matches a catalog card, offer to add from catalog for full offers */}
+              {catalogMatchesInCustom.length > 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 space-y-2">
+                  <p className="text-sm font-medium text-emerald-800">
+                    We have this card in our catalog
+                  </p>
+                  <p className="text-xs text-emerald-700">
+                    Add it from the catalog to get full reward offers automatically — no need to enter rewards yourself.
+                  </p>
+                  <div className="space-y-1.5">
+                    {catalogMatchesInCustom.slice(0, 3).map((card) => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => handlePickCard(card)}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-2.5 rounded-lg border border-emerald-200/80",
+                          "bg-white hover:bg-emerald-50 hover:border-emerald-300",
+                          "text-left transition-colors",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-lg bg-gradient-to-br shrink-0",
+                            NETWORK_GRADIENT[card.network] ?? "from-slate-600 to-slate-900",
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{card.cardName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {card.issuer} · {formatPercent(card.baseRewardPct)} base
+                          </p>
+                        </div>
+                        <Button type="button" size="sm" className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white h-8">
+                          Add from catalog
+                        </Button>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-emerald-600 pt-1">
+                    Or add as a custom card below if this isn&apos;t the right one.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="custom-issuer">Issuer / Bank</Label>
                 <Input
@@ -387,6 +454,9 @@ export function AddCardModal() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="custom-baseRewardPct">Base reward %</Label>
+                  <p className="text-[11px] text-muted-foreground -mt-1">
+                    We don&apos;t have offer data for this card. Enter the flat rate for general recommendations.
+                  </p>
                   <Input
                     id="custom-baseRewardPct"
                     type="number"

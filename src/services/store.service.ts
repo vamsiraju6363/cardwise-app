@@ -17,6 +17,18 @@ function getCategoryFromKeyword(query: string): string | null {
   }
   return null;
 }
+
+function getCapRange(period: CapPeriod): [Date, Date] {
+  const now = new Date();
+  switch (period) {
+    case "MONTHLY":
+      return [startOfMonth(now), endOfMonth(now)];
+    case "QUARTERLY":
+      return [startOfQuarter(now), endOfQuarter(now)];
+    case "ANNUALLY":
+      return [startOfYear(now), endOfYear(now)];
+  }
+}
 import { CardService } from "./card.service";
 import { OfferService } from "./offer.service";
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
@@ -242,18 +254,6 @@ export class StoreService {
 
     const userCardIds = userCards.map((uc) => uc.id);
 
-    function getCapRange(period: CapPeriod): [Date, Date] {
-      const now = new Date();
-      switch (period) {
-        case "MONTHLY":
-          return [startOfMonth(now), endOfMonth(now)];
-        case "QUARTERLY":
-          return [startOfQuarter(now), endOfQuarter(now)];
-        case "ANNUALLY":
-          return [startOfYear(now), endOfYear(now)];
-      }
-    }
-
     const ranked: Array<{
       store: (typeof stores)[0] & { matchScore?: number };
       bestRewardPct: number;
@@ -321,6 +321,112 @@ export class StoreService {
         store: { ...store, matchScore: bestRewardPct * 100 },
         bestRewardPct,
         bestCardName,
+        bestOfferDescription,
+      });
+    }
+
+    ranked.sort((a, b) => b.bestRewardPct - a.bestRewardPct);
+    return ranked.slice(0, limit);
+  }
+
+  /**
+   * Returns stores in a category ranked by the reward a specific user card earns
+   * at each store. Enables "My Amex + Gas" → "best gas stations for my Amex".
+   */
+  static async getStoresRankedForUserCard(
+    userId: string,
+    userCardId: string,
+    categorySlug: string,
+    limit = 20,
+  ): Promise<
+    Array<{
+      store: Awaited<ReturnType<typeof StoreService.getStoreById>>;
+      bestRewardPct: number;
+      bestCardName: string;
+      bestOfferDescription: string | null;
+    }>
+  > {
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug },
+      select: { id: true, name: true },
+    });
+    if (!category) return [];
+
+    const userCard = await CardService.getUserCardById(userCardId, userId);
+    if (!userCard) return [];
+
+    const cardId = userCard.cardId ?? null;
+    if (!cardId || String(userCard.card.id).startsWith("custom-")) {
+      const stores = await prisma.store.findMany({
+        where: { isActive: true, categoryId: category.id },
+        select: storeWithCategorySelect,
+        orderBy: { name: "asc" },
+        take: limit,
+      });
+      const basePct = Number(userCard.card.baseRewardPct ?? 0);
+      const cardName = userCard.nickname ?? `${userCard.card.issuer} ${userCard.card.cardName}`;
+      return stores.map((store) => ({
+        store: { ...store, matchScore: basePct * 100 },
+        bestRewardPct: basePct,
+        bestCardName: cardName,
+        bestOfferDescription: null,
+      }));
+    }
+
+    const stores = await prisma.store.findMany({
+      where: { isActive: true, categoryId: category.id },
+      select: storeWithCategorySelect,
+      orderBy: { name: "asc" },
+      take: limit * 2,
+    });
+
+    const cardName = userCard.nickname ?? `${userCard.card.issuer} ${userCard.card.cardName}`;
+    const ranked: Array<{
+      store: (typeof stores)[0] & { matchScore?: number };
+      bestRewardPct: number;
+      bestCardName: string;
+      bestOfferDescription: string | null;
+    }> = [];
+
+    for (const store of stores) {
+      const offersRaw = await OfferService.getOffersForStore(store.id, [userCardId]);
+      if (!offersRaw) continue;
+
+      const now = new Date();
+      let bestRewardPct = Number(userCard.card.baseRewardPct ?? 0);
+      let bestOfferDescription: string | null = null;
+
+      for (const offer of offersRaw) {
+        if (offer.userCardId !== userCardId) continue;
+        if (offer.validUntil && new Date(offer.validUntil) < now) continue;
+
+        let effectivePct = Number(offer.rewardPct);
+        if (offer.capAmount && offer.capPeriod) {
+          const [periodStart] = getCapRange(offer.capPeriod as CapPeriod);
+          const tracking = await prisma.spendTracking.findUnique({
+            where: {
+              userCardId_offerId_periodStart: {
+                userCardId,
+                offerId: offer.id,
+                periodStart,
+              },
+            },
+          });
+          const spent = tracking ? Number(tracking.amountSpent) : 0;
+          const cap = Number(offer.capAmount);
+          if (spent >= cap) effectivePct = Number(userCard.card.baseRewardPct);
+        }
+
+        if (effectivePct > bestRewardPct) {
+          bestRewardPct = effectivePct;
+          bestOfferDescription = offer.bonusDescription ?? null;
+        }
+      }
+
+      ranked.push({
+        store: { ...store, matchScore: bestRewardPct * 100 },
+        bestRewardPct,
+        bestCardName: cardName,
         bestOfferDescription,
       });
     }

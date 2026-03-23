@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CardTile, CardTileSkeleton, type CardTileUserCard } from "./CardTile";
+import { CardOffersSheet } from "./CardOffersSheet";
 import { AddCardModal } from "./AddCardModal";
 import { Button } from "@/components/ui/button";
 import { Plus, CreditCard, RefreshCw, Wallet, ChevronDown, ChevronUp, Archive } from "lucide-react";
@@ -127,7 +128,12 @@ function WalletEmpty({ onAdd }: { onAdd: () => void }) {
 
 // ─── Archived section ────────────────────────────────────────────────────────
 
-function ArchivedSection({ cards }: { cards: CardTileUserCard[] }) {
+interface ArchivedSectionProps {
+  cards: CardTileUserCard[];
+  onOffersClick?: (userCard: CardTileUserCard) => void;
+}
+
+function ArchivedSection({ cards, onOffersClick }: ArchivedSectionProps) {
   const [expanded, setExpanded] = useState(false);
   if (cards.length === 0) return null;
 
@@ -150,7 +156,7 @@ function ArchivedSection({ cards }: { cards: CardTileUserCard[] }) {
       {expanded && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 pt-0">
           {cards.map((uc) => (
-            <CardTile key={uc.id} userCard={uc} archived />
+            <CardTile key={uc.id} userCard={uc} archived onOffersClick={onOffersClick} />
           ))}
         </div>
       )}
@@ -168,6 +174,11 @@ export function WalletGrid() {
   const { data: userCards, isLoading, isError, refetch } = useUserCards();
   const { data: allCards } = useUserCardsIncludingInactive();
   const openAddModal = useWalletStore((s) => s.openAddModal);
+  const [offersForCard, setOffersForCard] = useState<CardTileUserCard | null>(null);
+
+  const handleOffersClick = (userCard: CardTileUserCard) => {
+    setOffersForCard(userCard);
+  };
 
   if (isLoading) return <WalletLoading />;
   if (isError)   return <WalletError onRetry={() => refetch()} />;
@@ -186,13 +197,24 @@ export function WalletGrid() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {cards.map((uc) => (
-            <CardTile key={uc.id} userCard={uc} />
+            <CardTile
+              key={uc.id}
+              userCard={uc}
+              onOffersClick={handleOffersClick}
+            />
           ))}
         </div>
       )}
 
-      {archivedCards.length > 0 && <ArchivedSection cards={archivedCards} />}
+      {archivedCards.length > 0 && (
+        <ArchivedSection cards={archivedCards} onOffersClick={handleOffersClick} />
+      )}
 
+      <CardOffersSheet
+        userCard={offersForCard}
+        open={offersForCard != null}
+        onOpenChange={(open) => !open && setOffersForCard(null)}
+      />
       <AddCardModal />
     </div>
   );

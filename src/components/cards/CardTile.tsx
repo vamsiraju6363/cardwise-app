@@ -12,7 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, CreditCard, EyeOff } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, CreditCard, EyeOff, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { useRemoveCard, useToggleCardActive } from "@/hooks/useCards";
 
@@ -49,6 +50,18 @@ const FALLBACK_NETWORK = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Offer shape from card.offers when present */
+export interface CardTileOffer {
+  id:               string;
+  rewardPct:        number;
+  rewardType:       string;
+  capAmount?:       number | null;
+  capPeriod?:       string | null;
+  bonusDescription?: string | null;
+  store?:           { id: string; name: string; slug: string } | null;
+  category?:        { id: string; name: string; slug: string } | null;
+}
+
 export interface CardTileUserCard {
   id:       string;
   nickname: string | null;
@@ -64,6 +77,7 @@ export interface CardTileUserCard {
     annualFee:     number | string;
     imageUrl?:     string | null;
     _count?:       { offers: number };
+    offers?:       CardTileOffer[];
   };
 }
 
@@ -83,13 +97,15 @@ interface CardTileProps {
   userCard: CardTileUserCard;
   /** When true, shows Restore instead of Remove and omits Hide. */
   archived?: boolean;
+  onOffersClick?: (userCard: CardTileUserCard) => void;
 }
 
 /**
  * Displays one UserCard as a credit-card-styled tile with gradient background,
  * active offers badge, and a three-dot action menu.
  */
-export function CardTile({ userCard, archived = false }: CardTileProps) {
+export function CardTile({ userCard, archived = false, onOffersClick }: CardTileProps) {
+  const router = useRouter();
   const { card } = userCard;
   const setEditingCard = useWalletStore((s) => s.setEditingCard);
   const removeCard     = useRemoveCard();
@@ -170,6 +186,13 @@ export function CardTile({ userCard, archived = false }: CardTileProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onClick={() => router.push(`/discover?card=${userCard.id}`)}
+                className="cursor-pointer"
+              >
+                <MapPin className="mr-2 h-3.5 w-3.5" />
+                Find best stores
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
                 <Pencil className="mr-2 h-3.5 w-3.5" />
                 Edit nickname
@@ -231,10 +254,30 @@ export function CardTile({ userCard, archived = false }: CardTileProps) {
 
           <div className="flex items-center gap-2">
             {activeOffers > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                <span className={cn("w-1.5 h-1.5 rounded-full", network.dot)} />
-                {activeOffers} offer{activeOffers !== 1 ? "s" : ""}
-              </span>
+              onOffersClick ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOffersClick(userCard);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full bg-emerald-400/20 border border-emerald-400/40",
+                    "px-2 py-0.5 text-[10px] font-semibold text-emerald-200",
+                    "hover:bg-emerald-400/30 hover:border-emerald-400/60 transition-colors",
+                    "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:ring-offset-1 focus:ring-offset-transparent",
+                  )}
+                  aria-label={`View ${activeOffers} offer${activeOffers !== 1 ? "s" : ""} for ${displayName}`}
+                >
+                  <span className={cn("w-1.5 h-1.5 rounded-full", network.dot)} />
+                  {activeOffers} offer{activeOffers !== 1 ? "s" : ""}
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                  <span className={cn("w-1.5 h-1.5 rounded-full", network.dot)} />
+                  {activeOffers} offer{activeOffers !== 1 ? "s" : ""}
+                </span>
+              )
             )}
             <Badge
               variant="outline"

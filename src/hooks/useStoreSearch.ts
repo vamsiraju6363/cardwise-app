@@ -45,18 +45,23 @@ export function useStoresByCategory(categorySlug: string | null) {
 
 async function fetchStoresRankedByCategory(
   categorySlug: string,
+  userCardId?: string | null,
 ): Promise<RankedStoreResult[]> {
   const params = new URLSearchParams({ category: categorySlug });
+  if (userCardId) params.set("userCardId", userCardId);
   const response = await fetch(`/api/recommend/stores?${params}`);
   if (!response.ok) throw new Error("Failed to fetch ranked stores");
   return response.json() as Promise<RankedStoreResult[]>;
 }
 
-/** Fetches stores in a category ranked by best reward for the user's cards. */
-export function useStoresRankedByCategory(categorySlug: string | null) {
+/** Fetches stores in a category ranked by best reward. With userCardId, ranks by that card's reward. */
+export function useStoresRankedByCategory(
+  categorySlug: string | null,
+  userCardId?: string | null,
+) {
   return useQuery<RankedStoreResult[]>({
-    queryKey: ["stores", "ranked", categorySlug],
-    queryFn: () => fetchStoresRankedByCategory(categorySlug!),
+    queryKey: ["stores", "ranked", categorySlug, userCardId ?? "all"],
+    queryFn: () => fetchStoresRankedByCategory(categorySlug!, userCardId),
     enabled: !!categorySlug,
     staleTime: 1000 * 60 * 2,
   });

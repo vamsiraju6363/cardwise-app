@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { StoreSearch } from "@/components/store/StoreSearch";
 import { RecommendationList } from "@/components/store/RecommendationList";
@@ -23,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AddCardModal } from "@/components/cards/AddCardModal";
 import type { StoreSearchResult, RankedStoreResult } from "@/types/store.types";
+import type { CardTileUserCard } from "@/components/cards/CardTile";
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -80,6 +82,57 @@ function RecentSearchesSection({ recentSearches, onSelect, onClear }: RecentSear
   );
 }
 
+// ─── Card selector (for "best stores for this card") ──────────────────────────
+
+interface CardSelectorProps {
+  userCards: CardTileUserCard[];
+  selectedCardId: string | null;
+  onSelectCard: (userCardId: string | null) => void;
+}
+
+function CardSelector({ userCards, selectedCardId, onSelectCard }: CardSelectorProps) {
+  if (userCards.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        Find best stores for…
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onSelectCard(null)}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+            selectedCardId === null
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+          )}
+        >
+          All cards
+        </button>
+        {userCards.map((uc) => {
+          const name = uc.nickname ?? `${uc.card.issuer} ${uc.card.cardName}`;
+          const isSelected = selectedCardId === uc.id;
+          return (
+            <button
+              key={uc.id}
+              type="button"
+              onClick={() => onSelectCard(isSelected ? null : uc.id)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-medium truncate max-w-[180px] transition-colors",
+                isSelected ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+              )}
+              title={name}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Browse by category section ───────────────────────────────────────────────
 
 interface BrowseCategoriesProps {
@@ -123,6 +176,7 @@ interface CategoryStoresListProps {
   fallbackStores?: StoreSearchResult[] | null;
   isLoading: boolean;
   onSelect: (store: StoreSearchResult) => void;
+  selectedCardName?: string | null;
 }
 
 function CategoryStoresList({
@@ -131,6 +185,7 @@ function CategoryStoresList({
   fallbackStores,
   isLoading,
   onSelect,
+  selectedCardName,
 }: CategoryStoresListProps) {
   if (isLoading) {
     return (
@@ -152,11 +207,17 @@ function CategoryStoresList({
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        {isRanked ? `Best ${categoryName} for your cards` : `Stores in ${categoryName}`}
+        {isRanked
+          ? selectedCardName
+            ? `Best ${categoryName} for ${selectedCardName}`
+            : `Best ${categoryName} for your cards`
+          : `Stores in ${categoryName}`}
       </h3>
       {isRanked && (
         <p className="text-xs text-muted-foreground mb-3">
-          Ranked by the highest reward you can earn with your wallet cards.
+          {selectedCardName
+            ? `Ranked by reward you earn with this card.`
+            : `Ranked by the highest reward you can earn with your wallet cards.`}
         </p>
       )}
       <div className="space-y-2">
@@ -258,22 +319,58 @@ function SelectedStoreHeader({
 // ─── Home page ────────────────────────────────────────────────────────────────
 
 /**
- * Find a Store — store search and card recommendations (was unreachable at `/` while root redirects to wallet).
+ * Find a Store — store search and card recommendations.
+ * Supports card-centric flow: pick a card → pick category → see best stores for that card.
  */
-export default function DiscoverPage() {
+function DiscoverPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedStore, setSelectedStore] = useState<StoreSearchResult | null>(null);
   const [browseCategory, setBrowseCategory] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(() =>
+    searchParams.get("card"),
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { recentSearches, clearRecentSearches, selectStore } = useSearchStore();
   const { data: userCards } = useUserCards();
+  const cards = (userCards ?? []) as CardTileUserCard[];
   const { data: rankedStores, isFetching: isLoadingCategory } =
-    useStoresRankedByCategory(browseCategory);
+    useStoresRankedByCategory(browseCategory, selectedCardId);
   const { data: fallbackStores } = useStoresByCategory(
     browseCategory && !isLoadingCategory && (rankedStores?.length === 0) ? browseCategory : null,
   );
   const openAddModal = useWalletStore((s) => s.openAddModal);
 
-  const hasNoCards = (userCards ?? []).length === 0;
+  const hasNoCards = cards.length === 0;
+  const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : null;
+  const selectedCardName = selectedCard
+    ? (selectedCard.nickname ?? `${selectedCard.card.issuer} ${selectedCard.card.cardName}`)
+    : null;
+
+  // Sync URL when card selection changes (for deep linking from wallet)
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedCardId) {
+      params.set("card", selectedCardId);
+    } else {
+      params.delete("card");
+    }
+    const qs = params.toString();
+    const url = qs ? `/discover?${qs}` : "/discover";
+    router.replace(url, { scroll: false });
+  }, [selectedCardId, router, searchParams]);
+
+  // When cards load, validate URL card exists; clear if not
+  useEffect(() => {
+    const cardFromUrl = searchParams.get("card");
+    if (cardFromUrl && cards.length > 0 && !cards.some((c) => c.id === cardFromUrl)) {
+      setSelectedCardId(null);
+    }
+  }, [searchParams.get("card"), cards]);
+
+  function handleSelectCard(userCardId: string | null) {
+    setSelectedCardId(userCardId);
+  }
 
   // Keyboard shortcut: "/" focuses the store search input
   useEffect(() => {
@@ -331,8 +428,8 @@ export default function DiscoverPage() {
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">
           Which card should I use?
         </h1>
-        <p className="text-gray-500 text-base">
-          Search any store to instantly see your best card and reward rate.
+        <p className="text-gray-500 text-base max-w-md mx-auto">
+          Search a store for card recommendations, or pick a card and category to find the best places to earn maximum rewards.
         </p>
       </div>
 
@@ -344,9 +441,14 @@ export default function DiscoverPage() {
         inputRef={searchInputRef}
       />
 
-      {/* ── Pre-search: recent + categories ── */}
+      {/* ── Pre-search: card selector + recent + categories ── */}
       {showPreSearch && (
         <div className="space-y-8">
+          <CardSelector
+            userCards={cards}
+            selectedCardId={selectedCardId}
+            onSelectCard={handleSelectCard}
+          />
           <RecentSearchesSection
             recentSearches={recentSearches}
             onSelect={handleStoreSelect}
@@ -366,6 +468,7 @@ export default function DiscoverPage() {
                 handleStoreSelect(store);
                 setBrowseCategory(null);
               }}
+              selectedCardName={selectedCardName}
             />
           )}
         </div>
@@ -381,5 +484,13 @@ export default function DiscoverPage() {
 
       <AddCardModal />
     </div>
+  );
+}
+
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={<div className="max-w-2xl mx-auto py-12 animate-pulse bg-muted/30 rounded-2xl" />}>
+      <DiscoverPageContent />
+    </Suspense>
   );
 }
