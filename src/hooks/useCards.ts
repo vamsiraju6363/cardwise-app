@@ -40,7 +40,9 @@ async function addCardFn(data: AddUserCardInput | AddCustomCardInput) {
     const err = await res.json() as { message?: string };
     throw new Error(err.message ?? "Failed to add card");
   }
-  return res.json();
+  const userCard = await res.json();
+  const linkedFromCatalog = res.headers.get("X-Cardwise-Linked-Catalog") === "1";
+  return { userCard, linkedFromCatalog };
 }
 
 async function updateCardFn(id: string, data: UpdateUserCardInput) {
@@ -102,9 +104,14 @@ export function useAddCard() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: addCardFn,
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: USER_CARDS_KEY });
-      toast({ title: "Card added", description: "The card has been added to your wallet." });
+      toast({
+        title: "Card added",
+        description: result.linkedFromCatalog
+          ? "Matched to our catalog — full reward offers are now attached to this card."
+          : "The card has been added to your wallet.",
+      });
     },
     onError: (err: Error) => {
       toast({

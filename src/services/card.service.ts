@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { pickCatalogCardId } from "@/lib/catalog-match";
 import type {
   AddUserCardInput,
   AddCustomCardInput,
@@ -226,10 +227,33 @@ export class CardService {
   }
 
   /**
-   * Adds a custom card (not in catalog) to the user's wallet.
+   * Adds a custom card, or links to the catalog when issuer + card name match
+   * a known product (so offers apply automatically).
    */
-  static async addCustomUserCard(userId: string, data: AddCustomCardInput) {
+  static async addCustomUserCard(userId: string, data: AddCustomCardInput): Promise<{
+    userCard: Awaited<ReturnType<typeof CardService.addUserCard>>;
+    linkedFromCatalog: boolean;
+  }> {
     try {
+      const catalogRows = await prisma.card.findMany({
+        where:   { isActive: true },
+        select: { id: true, issuer: true, cardName: true, network: true },
+      });
+      const matchedId = pickCatalogCardId(
+        data.issuer,
+        data.cardName,
+        catalogRows,
+        data.network,
+      );
+      if (matchedId) {
+        const userCard = await CardService.addUserCard(userId, {
+          cardId:   matchedId,
+          nickname: data.nickname ?? undefined,
+          lastFour: data.lastFour ?? undefined,
+        });
+        return { userCard, linkedFromCatalog: true };
+      }
+
       const created = await prisma.userCard.create({
         data: {
           userId,
@@ -244,7 +268,7 @@ export class CardService {
         },
         include: { card: true },
       });
-      return normalizeUserCard(created);
+      return { userCard: normalizeUserCard(created), linkedFromCatalog: false };
     } catch (err) {
       console.error("[CardService.addCustomUserCard]", err);
       throw err;

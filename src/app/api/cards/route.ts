@@ -73,8 +73,15 @@ export async function POST(request: Request) {
 
   if (customParsed.success) {
     try {
-      const userCard = await CardService.addCustomUserCard(session.user.id, customParsed.data);
-      return NextResponse.json(userCard, { status: 201 });
+      const { userCard, linkedFromCatalog } = await CardService.addCustomUserCard(
+        session.user.id,
+        customParsed.data,
+      );
+      const headers = new Headers();
+      if (linkedFromCatalog) {
+        headers.set("X-Cardwise-Linked-Catalog", "1");
+      }
+      return NextResponse.json(userCard, { status: 201, headers });
     } catch {
       return NextResponse.json({ message: "Failed to add card" }, { status: 500 });
     }

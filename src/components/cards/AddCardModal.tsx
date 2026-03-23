@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, Search, ArrowLeft, Loader2, PlusCircle } from "lucide-react";
+import { Check, CreditCard, Search, ArrowLeft, Loader2, PlusCircle, Fingerprint } from "lucide-react";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { useAddCard, useUpdateCard, useAllCards } from "@/hooks/useCards";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -122,6 +122,9 @@ export function AddCardModal() {
   const [step, setStep]               = useState<"pick" | "label" | "custom">("pick");
   const [selectedCard, setSelectedCard] = useState<CatalogCard | null>(null);
   const [searchQuery, setSearchQuery]   = useState("");
+  const [binInput, setBinInput]         = useState("");
+  const [binLookupPending, setBinLookupPending] = useState(false);
+  const [binLookupHint, setBinLookupHint]       = useState<string | null>(null);
 
   // ── Forms ──
   const addForm = useForm<AddCardInput>({
@@ -175,9 +178,38 @@ export function AddCardModal() {
           nickname: "",
           lastFour: "",
         });
+        setBinInput("");
+        setBinLookupHint(null);
       }
     }
   }, [isAddCardModalOpen, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleBinLookup() {
+    const digits = binInput.replace(/\D/g, "").slice(0, 6);
+    setBinLookupHint(null);
+    if (digits.length !== 6) {
+      setBinLookupHint("Enter exactly 6 digits (first numbers on your card—not the full number).");
+      return;
+    }
+    setBinLookupPending(true);
+    try {
+      const res = await fetch(`/api/cards/bin-lookup?bin=${digits}`);
+      const data = (await res.json()) as { issuer?: string | null; network?: string | null };
+      if (data.issuer) customForm.setValue("issuer", data.issuer);
+      if (data.network && NETWORKS.includes(data.network as (typeof NETWORKS)[number])) {
+        customForm.setValue("network", data.network as AddCustomCardInput["network"]);
+      }
+      setBinLookupHint(
+        data.issuer
+          ? "Bank name filled from BIN—add your card product name, then save."
+          : "No bank name returned for this BIN. Enter issuer manually.",
+      );
+    } catch {
+      setBinLookupHint("Lookup failed. Enter your bank name manually.");
+    } finally {
+      setBinLookupPending(false);
+    }
+  }
 
   const watchIssuer   = customForm.watch("issuer") ?? "";
   const watchCardName = customForm.watch("cardName") ?? "";
@@ -282,7 +314,7 @@ export function AddCardModal() {
               : step === "pick"
               ? "Choose a card from the catalog or add one not listed."
               : step === "custom"
-              ? "Search by typing issuer and card name — we'll suggest catalog matches with full offers if we have them."
+              ? "Enter bank and card name (optional: first 6 digits to suggest bank). We match to our catalog when possible—no full card number or bank login."
               : "Optionally give your card a nickname and enter the last 4 digits."}
           </DialogDescription>
         </DialogHeader>
@@ -375,7 +407,7 @@ export function AddCardModal() {
                     We have this card in our catalog
                   </p>
                   <p className="text-xs text-emerald-700">
-                    Add it from the catalog to get full reward offers automatically — no need to enter rewards yourself.
+                    Tap Add from catalog, or submit the form—we also auto-match on save when the name matches.
                   </p>
                   <div className="space-y-1.5">
                     {catalogMatchesInCustom.slice(0, 3).map((card) => (
@@ -413,11 +445,42 @@ export function AddCardModal() {
                 </div>
               )}
 
+              <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/20 p-3 space-y-2">
+                <Label htmlFor="custom-bin" className="flex items-center gap-2 text-sm">
+                  <Fingerprint className="h-3.5 w-3.5 text-muted-foreground" />
+                  First 6 digits (BIN) — optional
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Public bank identifier only. We never ask for your full card number, CVV, or bank password.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="custom-bin"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="424242"
+                    value={binInput}
+                    onChange={(e) => setBinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="font-mono tracking-widest max-w-[9rem]"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={binLookupPending}
+                    onClick={() => void handleBinLookup()}
+                  >
+                    {binLookupPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Look up bank"}
+                  </Button>
+                </div>
+                {binLookupHint && <p className="text-[11px] text-muted-foreground">{binLookupHint}</p>}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="custom-issuer">Issuer / Bank</Label>
                 <Input
                   id="custom-issuer"
-                  placeholder="e.g. Chase, Amex, Local Bank"
+                  placeholder="e.g. Chase, American Express, Wells Fargo"
                   {...customForm.register("issuer")}
                 />
                 {customForm.formState.errors.issuer && (
@@ -455,7 +518,7 @@ export function AddCardModal() {
                 <div className="space-y-2">
                   <Label htmlFor="custom-baseRewardPct">Base reward %</Label>
                   <p className="text-[11px] text-muted-foreground -mt-1">
-                    We don&apos;t have offer data for this card. Enter the flat rate for general recommendations.
+                    Used only if we can&apos;t match this card to our catalog—your everyday base earn rate.
                   </p>
                   <Input
                     id="custom-baseRewardPct"

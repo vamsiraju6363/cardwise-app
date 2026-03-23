@@ -82,6 +82,7 @@ describe("AddCardModal — Add mode (step 1: pick)", () => {
   beforeEach(() => {
     mockEditingCard = null;
     mockAddCardMutate.mockClear();
+    mockAddCardMutate.mockResolvedValue({ userCard: {}, linkedFromCatalog: false });
     mockCloseModal.mockClear();
   });
 
@@ -133,6 +134,7 @@ describe("AddCardModal — Add mode (step 2: label)", () => {
   beforeEach(() => {
     mockEditingCard = null;
     mockAddCardMutate.mockClear();
+    mockAddCardMutate.mockResolvedValue({ userCard: {}, linkedFromCatalog: false });
     mockCloseModal.mockClear();
   });
 
