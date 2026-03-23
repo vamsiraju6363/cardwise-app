@@ -111,20 +111,42 @@ const cardData = [
 // ─── Stores ───────────────────────────────────────────────────────────────────
 
 const storeData = [
+  // General
   { name: "Target",      slug: "target",      categorySlug: "general",         websiteDomain: "target.com",      merchantMcc: "5311" },
   { name: "Walmart",     slug: "walmart",     categorySlug: "general",         websiteDomain: "walmart.com",     merchantMcc: "5310" },
-  { name: "Amazon",      slug: "amazon",      categorySlug: "online-shopping", websiteDomain: "amazon.com",      merchantMcc: "5999" },
-  { name: "Costco",      slug: "costco",      categorySlug: "groceries",       websiteDomain: "costco.com",      merchantMcc: "5300" },
-  { name: "Whole Foods", slug: "whole-foods", categorySlug: "groceries",       websiteDomain: "wholefoodsmarket.com", merchantMcc: "5411" },
   { name: "Home Depot",  slug: "home-depot",  categorySlug: "general",         websiteDomain: "homedepot.com",   merchantMcc: "5200" },
   { name: "Best Buy",    slug: "best-buy",    categorySlug: "general",         websiteDomain: "bestbuy.com",     merchantMcc: "5732" },
   { name: "CVS",         slug: "cvs",         categorySlug: "general",         websiteDomain: "cvs.com",         merchantMcc: "5912" },
+  // Online Shopping
+  { name: "Amazon",      slug: "amazon",      categorySlug: "online-shopping", websiteDomain: "amazon.com",      merchantMcc: "5999" },
+  { name: "eBay",        slug: "ebay",        categorySlug: "online-shopping", websiteDomain: "ebay.com",        merchantMcc: "5999" },
+  { name: "Etsy",        slug: "etsy",        categorySlug: "online-shopping", websiteDomain: "etsy.com",        merchantMcc: "5999" },
+  // Groceries
+  { name: "Costco",      slug: "costco",      categorySlug: "groceries",       websiteDomain: "costco.com",      merchantMcc: "5300" },
+  { name: "Whole Foods", slug: "whole-foods", categorySlug: "groceries",       websiteDomain: "wholefoodsmarket.com", merchantMcc: "5411" },
+  { name: "Kroger",      slug: "kroger",      categorySlug: "groceries",       websiteDomain: "kroger.com",      merchantMcc: "5411" },
+  { name: "Trader Joe's", slug: "trader-joes", categorySlug: "groceries",      websiteDomain: "traderjoes.com",  merchantMcc: "5411" },
+  { name: "Safeway",     slug: "safeway",     categorySlug: "groceries",       websiteDomain: "safeway.com",     merchantMcc: "5411" },
+  // Gas
   { name: "Shell",       slug: "shell",       categorySlug: "gas",             websiteDomain: "shell.com",       merchantMcc: "5541" },
   { name: "Exxon",       slug: "exxon",       categorySlug: "gas",             websiteDomain: "exxon.com",       merchantMcc: "5541" },
   { name: "Mobil",       slug: "mobil",       categorySlug: "gas",             websiteDomain: "mobil.com",       merchantMcc: "5541" },
   { name: "Chevron",     slug: "chevron",     categorySlug: "gas",             websiteDomain: "chevron.com",     merchantMcc: "5541" },
   { name: "BP",          slug: "bp",          categorySlug: "gas",             websiteDomain: "bp.com",          merchantMcc: "5541" },
+  // Dining
   { name: "Starbucks",   slug: "starbucks",   categorySlug: "dining",          websiteDomain: "starbucks.com",   merchantMcc: "5814" },
+  { name: "Chipotle",    slug: "chipotle",    categorySlug: "dining",          websiteDomain: "chipotle.com",    merchantMcc: "5814" },
+  { name: "McDonald's",  slug: "mcdonalds",   categorySlug: "dining",          websiteDomain: "mcdonalds.com",   merchantMcc: "5814" },
+  { name: "Panera",      slug: "panera",      categorySlug: "dining",          websiteDomain: "panerabread.com", merchantMcc: "5814" },
+  { name: "Subway",      slug: "subway",      categorySlug: "dining",          websiteDomain: "subway.com",      merchantMcc: "5814" },
+  { name: "Chick-fil-A", slug: "chick-fil-a", categorySlug: "dining",          websiteDomain: "chick-fil-a.com", merchantMcc: "5814" },
+  { name: "Dunkin'",     slug: "dunkin",      categorySlug: "dining",          websiteDomain: "dunkindonuts.com", merchantMcc: "5814" },
+  { name: "Domino's",    slug: "dominos",     categorySlug: "dining",          websiteDomain: "dominos.com",     merchantMcc: "5812" },
+  // Travel
+  { name: "Delta",       slug: "delta",       categorySlug: "travel",          websiteDomain: "delta.com",       merchantMcc: "3000" },
+  { name: "United",      slug: "united",      categorySlug: "travel",          websiteDomain: "united.com",      merchantMcc: "3000" },
+  { name: "Airbnb",      slug: "airbnb",      categorySlug: "travel",          websiteDomain: "airbnb.com",      merchantMcc: "7011" },
+  { name: "Expedia",     slug: "expedia",     categorySlug: "travel",          websiteDomain: "expedia.com",     merchantMcc: "3000" },
 ];
 
 // ─── Offers ───────────────────────────────────────────────────────────────────
@@ -534,7 +556,7 @@ async function main() {
     console.log(`   ✓ ${store.name}`);
   }
 
-  // 4. Offers
+  // 4. Offers (skip if offer already exists — idempotent for re-runs)
   console.log("\n🎁 Seeding offers...");
   let offerCount = 0;
 
@@ -548,6 +570,16 @@ async function main() {
     if (offer.storeSlug && !storeId)       throw new Error(`Store not found: ${offer.storeSlug}`);
     if (offer.categorySlug && !categoryId) throw new Error(`Category not found: ${offer.categorySlug}`);
     if (!storeId && !categoryId)           throw new Error(`Offer must have storeId or categoryId: ${offer.cardKey}`);
+
+    const existing = await prisma.offer.findFirst({
+      where: {
+        cardId,
+        storeId:    storeId    ?? null,
+        categoryId: categoryId ?? null,
+        rewardPct:  offer.rewardPct,
+      },
+    });
+    if (existing) continue;
 
     await prisma.offer.create({
       data: {

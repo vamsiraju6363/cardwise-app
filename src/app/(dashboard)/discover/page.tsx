@@ -177,6 +177,7 @@ interface CategoryStoresListProps {
   isLoading: boolean;
   onSelect: (store: StoreSearchResult) => void;
   selectedCardName?: string | null;
+  hasCards: boolean;
 }
 
 function CategoryStoresList({
@@ -186,6 +187,7 @@ function CategoryStoresList({
   isLoading,
   onSelect,
   selectedCardName,
+  hasCards,
 }: CategoryStoresListProps) {
   if (isLoading) {
     return (
@@ -198,7 +200,9 @@ function CategoryStoresList({
   if (!storesToShow || storesToShow.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-6">
-        No stores found in {categoryName}. Add your cards to see personalized rankings.
+        {hasCards
+          ? `No stores found in ${categoryName} yet. We're adding more merchants — try another category.`
+          : `No stores found in ${categoryName}. Add your cards to see personalized rankings.`}
       </p>
     );
   }
@@ -469,6 +473,7 @@ function DiscoverPageContent() {
                 setBrowseCategory(null);
               }}
               selectedCardName={selectedCardName}
+              hasCards={!hasNoCards}
             />
           )}
         </div>

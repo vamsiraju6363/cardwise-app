@@ -59,9 +59,9 @@ See `.env.example` for the full template.
   ```bash
   DATABASE_URL="<pooled-url>" DIRECT_URL="<direct-url>" npx prisma migrate deploy
   ```
-- [ ] **Prisma db seed** — Run once after first production migration for the initial card catalog (8 cards, stores, offers):
+- [ ] **Prisma db seed** — Run once after first production migration for the card catalog, stores, and offers. If you see "No stores found" when browsing categories, re-run the seed:
   ```bash
-  # Run once after first production migration
+  # Run once after first production migration (or re-run to add new stores)
   DATABASE_URL="<direct-url>" DIRECT_URL="<direct-url>" npx prisma db seed
   ```
 - [ ] **Test auth flow end-to-end** — Register/login, Google OAuth
