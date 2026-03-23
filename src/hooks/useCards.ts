@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import type { AddUserCardInput, UpdateUserCardInput } from "@/lib/validations/card.schema";
+import type { AddUserCardInput, AddCustomCardInput, UpdateUserCardInput } from "@/lib/validations/card.schema";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ async function fetchAllCards() {
   return Array.isArray(data) ? data : (data.cards ?? []);
 }
 
-async function addCardFn(data: AddUserCardInput) {
+async function addCardFn(data: AddUserCardInput | AddCustomCardInput) {
   const res = await fetch("/api/cards", {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
@@ -97,7 +97,7 @@ export const useCatalog = useAllCards;
 
 // ─── Mutation hooks ───────────────────────────────────────────────────────────
 
-/** Adds a catalog card to the user's wallet. */
+/** Adds a catalog or custom card to the user's wallet. */
 export function useAddCard() {
   const queryClient = useQueryClient();
   return useMutation({

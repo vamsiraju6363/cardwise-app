@@ -48,3 +48,14 @@ export interface StoreSearchParams {
   query:  string;
   limit?: number;
 }
+
+/**
+ * A store ranked by the best reward the user can get with their cards.
+ * Used when browsing by category (e.g. "best gas stations for my cards").
+ */
+export interface RankedStoreResult {
+  store:            Store & { matchScore?: number };
+  bestRewardPct:    number;
+  bestCardName:     string;
+  bestOfferDescription: string | null;
+}

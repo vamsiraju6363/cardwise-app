@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { StoreSearchResult } from "@/types/store.types";
+import type { StoreSearchResult, RankedStoreResult } from "@/types/store.types";
 
 async function searchStores(query: string): Promise<StoreSearchResult[]> {
   const params = new URLSearchParams({ query });
@@ -33,12 +33,31 @@ export function useStoreSearch(query: string) {
   });
 }
 
-/** Fetches stores in a category for browse-by-category. */
+/** Fetches stores in a category for browse-by-category (plain list). */
 export function useStoresByCategory(categorySlug: string | null) {
   return useQuery<StoreSearchResult[]>({
     queryKey: ["stores", "category", categorySlug],
     queryFn: () => fetchStoresByCategory(categorySlug!),
     enabled: !!categorySlug,
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+async function fetchStoresRankedByCategory(
+  categorySlug: string,
+): Promise<RankedStoreResult[]> {
+  const params = new URLSearchParams({ category: categorySlug });
+  const response = await fetch(`/api/recommend/stores?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch ranked stores");
+  return response.json() as Promise<RankedStoreResult[]>;
+}
+
+/** Fetches stores in a category ranked by best reward for the user's cards. */
+export function useStoresRankedByCategory(categorySlug: string | null) {
+  return useQuery<RankedStoreResult[]>({
+    queryKey: ["stores", "ranked", categorySlug],
+    queryFn: () => fetchStoresRankedByCategory(categorySlug!),
+    enabled: !!categorySlug,
+    staleTime: 1000 * 60 * 2,
   });
 }

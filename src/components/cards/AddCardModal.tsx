@@ -13,17 +13,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, Search, ArrowLeft, Loader2 } from "lucide-react";
+import { Check, CreditCard, Search, ArrowLeft, Loader2, PlusCircle } from "lucide-react";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { useAddCard, useUpdateCard, useAllCards } from "@/hooks/useCards";
 import {
   addCardSchema,
+  addCustomCardSchema,
   updateCardSchema,
   type AddCardInput,
+  type AddCustomCardInput,
   type UpdateCardInput,
 } from "@/lib/validations/card.schema";
+import { z } from "zod";
 import { cn, formatPercent, getRewardTypeLabel } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,6 +47,13 @@ type CatalogCard = {
   rewardType:    string;
   annualFee:     number;
 };
+
+const NETWORKS = ["VISA", "MASTERCARD", "AMEX", "DISCOVER"] as const;
+const REWARD_TYPES = [
+  { value: "CASHBACK", label: "Cash back" },
+  { value: "POINTS", label: "Points" },
+  { value: "MILES", label: "Miles" },
+] as const;
 
 // ─── Network gradient (mirrors CardTile) ─────────────────────────────────────
 
@@ -101,7 +118,7 @@ export function AddCardModal() {
   const updateCard = useUpdateCard();
 
   const isEditing = !!editingCard;
-  const [step, setStep]               = useState<"pick" | "label">("pick");
+  const [step, setStep]               = useState<"pick" | "label" | "custom">("pick");
   const [selectedCard, setSelectedCard] = useState<CatalogCard | null>(null);
   const [searchQuery, setSearchQuery]   = useState("");
 
@@ -114,6 +131,24 @@ export function AddCardModal() {
   const editForm = useForm<UpdateCardInput>({
     resolver:      zodResolver(updateCardSchema),
     defaultValues: { nickname: "", lastFour: "" },
+  });
+
+  type CustomFormValues = Omit<AddCustomCardInput, "baseRewardPct"> & { baseRewardPctInput: number };
+  const customForm = useForm<CustomFormValues>({
+    resolver: zodResolver(
+      addCustomCardSchema.omit({ baseRewardPct: true }).extend({
+        baseRewardPctInput: z.coerce.number().min(0, "Enter 0 or more").max(100, "Enter 100 or less"),
+      }),
+    ),
+    defaultValues: {
+      issuer: "",
+      cardName: "",
+      network: "VISA",
+      baseRewardPctInput: 1,
+      rewardType: "CASHBACK",
+      nickname: "",
+      lastFour: "",
+    },
   });
 
   // Reset state whenever the modal opens/closes or switches between add/edit
@@ -130,6 +165,15 @@ export function AddCardModal() {
         setSelectedCard(null);
         setSearchQuery("");
         addForm.reset({ cardId: "", nickname: "", lastFour: "" });
+        customForm.reset({
+          issuer: "",
+          cardName: "",
+          network: "VISA",
+          baseRewardPctInput: 1,
+          rewardType: "CASHBACK",
+          nickname: "",
+          lastFour: "",
+        });
       }
     }
   }, [isAddCardModalOpen, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,6 +213,19 @@ export function AddCardModal() {
     closeAddCardModal();
   }
 
+  async function handleAddCustom(values: CustomFormValues) {
+    await addCard.mutateAsync({
+      issuer:        values.issuer,
+      cardName:      values.cardName,
+      network:       values.network,
+      baseRewardPct: values.baseRewardPctInput / 100,
+      rewardType:    values.rewardType,
+      nickname:      values.nickname || undefined,
+      lastFour:      values.lastFour || undefined,
+    });
+    closeAddCardModal();
+  }
+
   async function handleUpdate(values: UpdateCardInput) {
     await updateCard.mutateAsync({
       id:   editingCard!.id,
@@ -193,13 +250,17 @@ export function AddCardModal() {
               ? "Edit card"
               : step === "pick"
               ? "Add a card"
+              : step === "custom"
+              ? "Add a custom card"
               : "Label your card"}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {isEditing
               ? "Update your card's nickname or last four digits."
               : step === "pick"
-              ? "Choose a card from the catalog to add to your wallet."
+              ? "Choose a card from the catalog or add one not listed."
+              : step === "custom"
+              ? "Add any card not in our catalog. It will earn its base rate everywhere."
               : "Optionally give your card a nickname and enter the last 4 digits."}
           </DialogDescription>
         </DialogHeader>
@@ -270,8 +331,133 @@ export function AddCardModal() {
                         </div>
                       </div>
                     ))}
+                <button
+                  type="button"
+                  onClick={() => setStep("custom")}
+                  className="w-full flex items-center gap-2 py-3 px-3 rounded-xl border border-dashed border-gray-300 text-sm text-muted-foreground hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50/50 transition-colors"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add a card not in our list
+                </button>
               </div>
             </>
+          )}
+
+          {/* ── Custom card form ── */}
+          {!isEditing && step === "custom" && (
+            <form onSubmit={customForm.handleSubmit(handleAddCustom)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="custom-issuer">Issuer / Bank</Label>
+                <Input
+                  id="custom-issuer"
+                  placeholder="e.g. Chase, Amex, Local Bank"
+                  {...customForm.register("issuer")}
+                />
+                {customForm.formState.errors.issuer && (
+                  <p className="text-xs text-destructive">{customForm.formState.errors.issuer.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="custom-cardName">Card name</Label>
+                <Input
+                  id="custom-cardName"
+                  placeholder="e.g. Preferred Rewards, Custom Cash"
+                  {...customForm.register("cardName")}
+                />
+                {customForm.formState.errors.cardName && (
+                  <p className="text-xs text-destructive">{customForm.formState.errors.cardName.message}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Network</Label>
+                  <Select
+                    value={customForm.watch("network")}
+                    onValueChange={(v) => customForm.setValue("network", v as AddCustomCardInput["network"])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NETWORKS.map((n) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="custom-baseRewardPct">Base reward %</Label>
+                  <Input
+                    id="custom-baseRewardPct"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    placeholder="e.g. 2"
+                    {...customForm.register("baseRewardPctInput", { valueAsNumber: true })}
+                  />
+                  {customForm.formState.errors.baseRewardPctInput && (
+                    <p className="text-xs text-destructive">{customForm.formState.errors.baseRewardPctInput.message}</p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Reward type</Label>
+                <Select
+                  value={customForm.watch("rewardType")}
+                  onValueChange={(v) => customForm.setValue("rewardType", v as AddCustomCardInput["rewardType"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REWARD_TYPES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="custom-nickname">Nickname <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  id="custom-nickname"
+                  placeholder="e.g. My work card"
+                  {...customForm.register("nickname")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="custom-lastFour">Last 4 digits <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  id="custom-lastFour"
+                  placeholder="1234"
+                  maxLength={4}
+                  inputMode="numeric"
+                  {...customForm.register("lastFour")}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setStep("pick")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={addCard.isPending}
+                >
+                  {addCard.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding…</>
+                  ) : (
+                    "Add to wallet"
+                  )}
+                </Button>
+              </div>
+            </form>
           )}
 
           {/* ── Step 2: Label (add mode) ── */}

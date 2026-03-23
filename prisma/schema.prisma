@@ -113,18 +113,25 @@ model Card {
   @@index([isActive])
 }
 
-/// A user's specific instance of a card from the catalog.
+/// A user's specific instance of a card — from the catalog or custom (not in catalog).
 model UserCard {
   id       String   @id @default(cuid())
   userId   String
-  cardId   String
+  cardId   String?  // null for custom cards
   nickname String?
   lastFour String?  @db.Char(4)
   isActive Boolean  @default(true)
   addedAt  DateTime @default(now())
 
+  // Custom card fields (required when cardId is null)
+  customIssuer        String?   @db.VarChar(100)
+  customCardName      String?   @db.VarChar(100)
+  customNetwork       CardNetwork?
+  customBaseRewardPct Decimal?  @db.Decimal(5, 4)
+  customRewardType    RewardType?
+
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  card          Card           @relation(fields: [cardId], references: [id])
+  card          Card?          @relation(fields: [cardId], references: [id])
   spendTracking SpendTracking[]
 
   @@unique([userId, cardId])

@@ -88,6 +88,24 @@ const cardData = [
     baseRewardPct: 0.02,   // 2% flat
     imageUrl:      null,
   },
+  {
+    issuer:        "Goldman Sachs",
+    cardName:      "Apple Card",
+    network:       CardNetwork.MASTERCARD,
+    annualFee:     0,
+    rewardType:    RewardType.CASHBACK,
+    baseRewardPct: 0.01,   // 1% base, 2% Apple Pay, 3% at select merchants
+    imageUrl:      null,
+  },
+  {
+    issuer:        "Built",
+    cardName:      "Built Card",
+    network:       CardNetwork.VISA,
+    annualFee:     0,
+    rewardType:    RewardType.CASHBACK,
+    baseRewardPct: 0.02,   // 2% general, bonus at gas/construction
+    imageUrl:      null,
+  },
 ];
 
 // ─── Stores ───────────────────────────────────────────────────────────────────
@@ -102,6 +120,9 @@ const storeData = [
   { name: "Best Buy",    slug: "best-buy",    categorySlug: "general",         websiteDomain: "bestbuy.com",     merchantMcc: "5732" },
   { name: "CVS",         slug: "cvs",         categorySlug: "general",         websiteDomain: "cvs.com",         merchantMcc: "5912" },
   { name: "Shell",       slug: "shell",       categorySlug: "gas",             websiteDomain: "shell.com",       merchantMcc: "5541" },
+  { name: "Exxon",       slug: "exxon",       categorySlug: "gas",             websiteDomain: "exxon.com",       merchantMcc: "5541" },
+  { name: "Chevron",     slug: "chevron",     categorySlug: "gas",             websiteDomain: "chevron.com",     merchantMcc: "5541" },
+  { name: "BP",          slug: "bp",          categorySlug: "gas",             websiteDomain: "bp.com",          merchantMcc: "5541" },
   { name: "Starbucks",   slug: "starbucks",   categorySlug: "dining",          websiteDomain: "starbucks.com",   merchantMcc: "5814" },
 ];
 
@@ -346,6 +367,91 @@ const offerData: OfferSeed[] = [
     rewardPct:    0.04,
     rewardType:   RewardType.POINTS,
     bonusDescription: "4x Membership Rewards at Whole Foods (U.S. supermarket)",
+  },
+
+  // ── Apple Card (Goldman Sachs) ───────────────────────────────────────────────
+  // 3% at select partners (Target, Walgreens, Exxon, T-Mobile, Uber, Nike, Panera)
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    storeSlug:    "target",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% Daily Cash when you use Apple Card with Apple Pay at Apple, Nike, Uber, Walgreens, Exxon, T-Mobile, and select merchants",
+  },
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    storeSlug:    "whole-foods",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% Daily Cash at Apple and select merchants (Apple Pay)",
+  },
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    storeSlug:    "shell",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% Daily Cash at Exxon and select gas stations (Apple Pay)",
+  },
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    storeSlug:    "exxon",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% Daily Cash at Exxon and select gas stations (Apple Pay)",
+  },
+  // 2% Apple Pay everywhere
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    categorySlug: "groceries",
+    rewardPct:    0.02,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "2% Daily Cash when you use Apple Card with Apple Pay",
+  },
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    categorySlug: "gas",
+    rewardPct:    0.02,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "2% Daily Cash when you use Apple Card with Apple Pay at gas stations",
+  },
+
+  // ── Built Card ───────────────────────────────────────────────────────────────
+  // 3% at gas stations, home improvement
+  {
+    cardKey:      "Built|Built Card",
+    categorySlug: "gas",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at gas stations and EV charging",
+  },
+  {
+    cardKey:      "Built|Built Card",
+    storeSlug:    "home-depot",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at home improvement stores",
+  },
+  // Amex BCP at Exxon, Chevron, BP (category-wide gas already covers; add store-specific for clarity)
+  {
+    cardKey:      "American Express|Blue Cash Preferred",
+    storeSlug:    "exxon",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at U.S. gas stations",
+  },
+  {
+    cardKey:      "American Express|Blue Cash Preferred",
+    storeSlug:    "chevron",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at U.S. gas stations",
+  },
+  {
+    cardKey:      "American Express|Blue Cash Preferred",
+    storeSlug:    "bp",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at U.S. gas stations",
   },
 ];
 

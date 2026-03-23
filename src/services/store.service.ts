@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { CardService } from "./card.service";
+import { OfferService } from "./offer.service";
+import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
+import type { CapPeriod } from "@prisma/client";
 
 // ─── Shared selects ───────────────────────────────────────────────────────────
 
@@ -168,5 +172,133 @@ export class StoreService {
       console.error("[StoreService.getAllCategories]", err);
       throw err;
     }
+  }
+
+  /**
+   * Returns stores in a category ranked by the best reward the user can get
+   * with their wallet cards. Enables "I need gas" → "best gas stations for my cards".
+   */
+  static async getStoresRankedByUserCards(
+    userId: string,
+    categorySlug: string,
+    limit = 20,
+  ): Promise<
+    Array<{
+      store: Awaited<ReturnType<typeof StoreService.getStoreById>>;
+      bestRewardPct: number;
+      bestCardName: string;
+      bestOfferDescription: string | null;
+    }>
+  > {
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug },
+      select: { id: true, name: true },
+    });
+    if (!category) return [];
+
+    const stores = await prisma.store.findMany({
+      where: { isActive: true, categoryId: category.id },
+      select: storeWithCategorySelect,
+      orderBy: { name: "asc" },
+      take: limit * 2,
+    });
+
+    const userCards = await CardService.getUserCards(userId);
+    if (userCards.length === 0) {
+      return stores.map((store) => ({
+        store: { ...store, matchScore: 0 },
+        bestRewardPct: 0,
+        bestCardName: "",
+        bestOfferDescription: null,
+      }));
+    }
+
+    const userCardIds = userCards.map((uc) => uc.id);
+
+    function getCapRange(period: CapPeriod): [Date, Date] {
+      const now = new Date();
+      switch (period) {
+        case "MONTHLY":
+          return [startOfMonth(now), endOfMonth(now)];
+        case "QUARTERLY":
+          return [startOfQuarter(now), endOfQuarter(now)];
+        case "ANNUALLY":
+          return [startOfYear(now), endOfYear(now)];
+      }
+    }
+
+    const ranked: Array<{
+      store: (typeof stores)[0] & { matchScore?: number };
+      bestRewardPct: number;
+      bestCardName: string;
+      bestOfferDescription: string | null;
+    }> = [];
+
+    for (const store of stores) {
+      const offersRaw = await OfferService.getOffersForStore(store.id, userCardIds);
+      if (!offersRaw) continue;
+
+      let bestRewardPct = 0;
+      let bestCardName = "";
+      let bestOfferDescription: string | null = null;
+
+      for (const offer of offersRaw) {
+        if (!offer.userCardId) continue;
+
+        const userCard = userCards.find((uc) => uc.id === offer.userCardId);
+        if (!userCard) continue;
+
+        const now = new Date();
+        if (offer.validUntil && new Date(offer.validUntil) < now) continue;
+
+        let effectivePct = Number(offer.rewardPct);
+
+        if (offer.capAmount && offer.capPeriod) {
+          const [periodStart] = getCapRange(offer.capPeriod as CapPeriod);
+          const tracking = await prisma.spendTracking.findUnique({
+            where: {
+              userCardId_offerId_periodStart: {
+                userCardId: offer.userCardId,
+                offerId: offer.id,
+                periodStart,
+              },
+            },
+          });
+          const spent = tracking ? Number(tracking.amountSpent) : 0;
+          const cap = Number(offer.capAmount);
+          if (spent >= cap) effectivePct = Number(userCard.card.baseRewardPct);
+        }
+
+        if (effectivePct > bestRewardPct) {
+          bestRewardPct = effectivePct;
+          bestCardName = userCard.nickname ?? `${userCard.card.issuer} ${userCard.card.cardName}`;
+          bestOfferDescription = offer.bonusDescription ?? null;
+        }
+      }
+
+      if (bestRewardPct === 0) {
+        const bestBase = userCards.reduce((max, uc) => {
+          const base = Number(uc.card.baseRewardPct);
+          return base > max ? base : max;
+        }, 0);
+        if (bestBase > 0) {
+          bestRewardPct = bestBase;
+          const uc = userCards.reduce((best, curr) =>
+            Number(curr.card.baseRewardPct) > Number(best.card.baseRewardPct) ? curr : best,
+          );
+          bestCardName = uc.nickname ?? `${uc.card.issuer} ${uc.card.cardName}`;
+        }
+      }
+
+      ranked.push({
+        store: { ...store, matchScore: bestRewardPct * 100 },
+        bestRewardPct,
+        bestCardName,
+        bestOfferDescription,
+      });
+    }
+
+    ranked.sort((a, b) => b.bestRewardPct - a.bestRewardPct);
+    return ranked.slice(0, limit);
   }
 }

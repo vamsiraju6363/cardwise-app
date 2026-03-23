@@ -226,7 +226,9 @@ export class TrackerService {
         },
       });
 
-      const cardIds = userCards.map((uc) => uc.card.id);
+      const cardIds = userCards.map((uc) => uc.card?.id).filter((id): id is string => id != null);
+      if (cardIds.length === 0) return [];
+
       const cappedOffers = await prisma.offer.findMany({
         where: { cardId: { in: cardIds }, capPeriod: period, isActive: true },
         select: {
@@ -242,7 +244,8 @@ export class TrackerService {
       });
 
       const results = userCards.flatMap((userCard) => {
-        const relevantOffers = cappedOffers.filter((o) => o.cardId === userCard.card.id);
+        if (!userCard.card) return []; // custom cards have no offers
+        const relevantOffers = cappedOffers.filter((o) => o.cardId === userCard.card!.id);
 
         return relevantOffers.map((offer) => {
           const tracking    = userCard.spendTracking.find((t) => t.offerId === offer.id);
@@ -252,7 +255,7 @@ export class TrackerService {
 
           return {
             userCardId:      userCard.id,
-            cardName:        userCard.nickname ?? `${userCard.card.issuer} ${userCard.card.cardName}`,
+            cardName:        userCard.nickname ?? `${userCard.card!.issuer} ${userCard.card!.cardName}`,
             offerId:         offer.id,
             offerLabel:      offer.store?.name ?? offer.category?.name ?? "Unknown",
             rewardPct:       Number(offer.rewardPct),

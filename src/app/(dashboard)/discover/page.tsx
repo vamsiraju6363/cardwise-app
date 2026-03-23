@@ -6,9 +6,9 @@ import { StoreSearch } from "@/components/store/StoreSearch";
 import { RecommendationList } from "@/components/store/RecommendationList";
 import { useSearchStore } from "@/stores/useSearchStore";
 import { useUserCards } from "@/hooks/useCards";
-import { useStoresByCategory } from "@/hooks/useStoreSearch";
+import { useStoresRankedByCategory } from "@/hooks/useStoreSearch";
 import { useWalletStore } from "@/stores/useWalletStore";
-import { cn, BLUR_DATA_URL } from "@/lib/utils";
+import { cn, BLUR_DATA_URL, formatPercent } from "@/lib/utils";
 import {
   ShoppingCart,
   Utensils,
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddCardModal } from "@/components/cards/AddCardModal";
-import type { StoreSearchResult } from "@/types/store.types";
+import type { StoreSearchResult, RankedStoreResult } from "@/types/store.types";
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -115,20 +115,18 @@ function BrowseCategories({ browseCategory, onCategoryClick }: BrowseCategoriesP
   );
 }
 
-// ─── Category stores list (shown when a category is selected) ───────────────────
+// ─── Best stores for your cards (shown when a category is selected) ─────────────
 
 interface CategoryStoresListProps {
-  categorySlug: string;
   categoryName: string;
-  stores: StoreSearchResult[];
+  rankedStores: RankedStoreResult[];
   isLoading: boolean;
   onSelect: (store: StoreSearchResult) => void;
 }
 
 function CategoryStoresList({
-  categorySlug,
   categoryName,
-  stores,
+  rankedStores,
   isLoading,
   onSelect,
 }: CategoryStoresListProps) {
@@ -139,7 +137,7 @@ function CategoryStoresList({
       </div>
     );
   }
-  if (stores.length === 0) {
+  if (rankedStores.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-6">
         No stores found in {categoryName}.
@@ -149,21 +147,40 @@ function CategoryStoresList({
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        Stores in {categoryName}
+        Best {categoryName} for your cards
       </h3>
-      <div className="flex flex-wrap gap-2">
-        {stores.map((store) => (
+      <p className="text-xs text-muted-foreground mb-3">
+        Ranked by the highest reward you can earn with your wallet cards.
+      </p>
+      <div className="space-y-2">
+        {rankedStores.map(({ store, bestRewardPct, bestCardName, bestOfferDescription }) => (
           <button
             key={store.id}
-            onClick={() => onSelect(store)}
+            onClick={() => onSelect({ ...store, matchScore: store.matchScore ?? 0 })}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200",
+              "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200",
               "bg-white hover:border-emerald-300 hover:bg-emerald-50",
-              "text-sm text-gray-700 transition-all duration-150",
+              "text-left transition-all duration-150",
             )}
           >
-            <Store className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-            <span className="font-medium">{store.name}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <Store className="h-4 w-4 text-gray-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 truncate">{store.name}</p>
+                {bestCardName ? (
+                  <p className="text-xs text-emerald-600 truncate" title={bestOfferDescription ?? undefined}>
+                    {formatPercent(bestRewardPct)} with {bestCardName}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Base rate only</p>
+                )}
+            </div>
+            </div>
+            {bestRewardPct > 0 && (
+              <span className="shrink-0 text-sm font-semibold text-emerald-600">
+                {formatPercent(bestRewardPct)}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -227,8 +244,8 @@ export default function DiscoverPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { recentSearches, clearRecentSearches, selectStore } = useSearchStore();
   const { data: userCards } = useUserCards();
-  const { data: categoryStores, isFetching: isLoadingCategory } =
-    useStoresByCategory(browseCategory);
+  const { data: rankedStores, isFetching: isLoadingCategory } =
+    useStoresRankedByCategory(browseCategory);
   const openAddModal = useWalletStore((s) => s.openAddModal);
 
   const hasNoCards = (userCards ?? []).length === 0;
@@ -315,9 +332,8 @@ export default function DiscoverPage() {
           />
           {browseCategory && (
             <CategoryStoresList
-              categorySlug={browseCategory}
               categoryName={CATEGORIES.find((c) => c.slug === browseCategory)?.name ?? browseCategory}
-              stores={categoryStores ?? []}
+              rankedStores={rankedStores ?? []}
               isLoading={isLoadingCategory}
               onSelect={(store) => {
                 handleStoreSelect(store);

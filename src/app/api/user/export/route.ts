@@ -46,6 +46,8 @@ export async function GET() {
         userCard: {
           select: {
             card: { select: { issuer: true, cardName: true } },
+            customIssuer: true,
+            customCardName: true,
             nickname: true,
             lastFour: true,
           },
@@ -65,18 +67,37 @@ export async function GET() {
         }
       : null,
     wallet: userCards.map((uc) => {
-      const { _count, ...card } = uc.card;
+      if (uc.card) {
+        const { _count, ...card } = uc.card;
+        return {
+          id: uc.id,
+          nickname: uc.nickname,
+          lastFour: uc.lastFour,
+          isActive: uc.isActive,
+          card,
+          offersCount: _count.offers,
+        };
+      }
       return {
         id: uc.id,
         nickname: uc.nickname,
         lastFour: uc.lastFour,
         isActive: uc.isActive,
-        card,
-        offersCount: _count.offers,
+        card: {
+          issuer: uc.customIssuer ?? "",
+          cardName: uc.customCardName ?? "",
+          network: uc.customNetwork ?? "VISA",
+          annualFee: 0,
+          rewardType: uc.customRewardType ?? "CASHBACK",
+        },
+        offersCount: 0,
       };
     }),
     spendTracking: tracking.map((t) => ({
-      card: t.userCard.card,
+      card: t.userCard.card ?? {
+        issuer: t.userCard.customIssuer ?? "",
+        cardName: t.userCard.customCardName ?? "",
+      },
       store: t.offer.store?.name ?? null,
       rewardPct: Number(t.offer.rewardPct),
       amountSpent: Number(t.amountSpent),

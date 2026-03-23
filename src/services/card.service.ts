@@ -1,5 +1,44 @@
 import { prisma } from "@/lib/prisma";
-import type { AddUserCardInput, UpdateUserCardInput } from "@/lib/validations/card.schema";
+import type {
+  AddUserCardInput,
+  AddCustomCardInput,
+  UpdateUserCardInput,
+} from "@/lib/validations/card.schema";
+
+// ─── Normalizer for custom cards ───────────────────────────────────────────────
+
+/** Synthetic card shape for custom UserCards (no catalog entry). */
+function syntheticCard(raw: {
+  id: string;
+  customIssuer?: string | null;
+  customCardName?: string | null;
+  customNetwork?: string | null;
+  customBaseRewardPct?: { toString?: () => string } | number | null;
+  customRewardType?: string | null;
+  addedAt: Date;
+}) {
+  return {
+    id:            `custom-${raw.id}`,
+    issuer:        raw.customIssuer ?? "",
+    cardName:      raw.customCardName ?? "",
+    network:       (raw.customNetwork ?? "VISA") as "VISA" | "MASTERCARD" | "AMEX" | "DISCOVER",
+    annualFee:     0,
+    rewardType:    (raw.customRewardType ?? "CASHBACK") as "CASHBACK" | "POINTS" | "MILES",
+    baseRewardPct: Number(raw.customBaseRewardPct ?? 0),
+    imageUrl:      null as string | null,
+    isActive:      true,
+    createdAt:     raw.addedAt,
+    updatedAt:     raw.addedAt,
+    offers:        [] as unknown[],
+    _count:        { offers: 0 },
+  };
+}
+
+/** Ensures every UserCard has a card object (synthetic for custom cards). */
+function normalizeUserCard<T extends { card?: unknown; id: string }>(raw: T): T & { card: NonNullable<T["card"]> } {
+  if (raw.card) return raw as T & { card: NonNullable<T["card"]> };
+  return { ...raw, card: syntheticCard(raw as Parameters<typeof syntheticCard>[0]) } as T & { card: ReturnType<typeof syntheticCard> };
+}
 
 // ─── Shared selects ───────────────────────────────────────────────────────────
 
@@ -69,11 +108,11 @@ export class CardService {
 
   /**
    * Returns all UserCard records (active + inactive) for a user.
-   * Used for the "Archived" section in the wallet.
+   * Custom cards get a synthetic card object.
    */
   static async getUserCardsIncludingInactive(userId: string) {
     try {
-      return await prisma.userCard.findMany({
+      const rows = await prisma.userCard.findMany({
         where: { userId },
         include: {
           card: {
@@ -87,6 +126,7 @@ export class CardService {
         },
         orderBy: [{ isActive: "desc" }, { addedAt: "desc" }],
       });
+      return rows.map((r) => normalizeUserCard(r));
     } catch (err) {
       console.error("[CardService.getUserCardsIncludingInactive]", err);
       throw err;
@@ -94,14 +134,12 @@ export class CardService {
   }
 
   /**
-   * Returns all active UserCard records for a user, including:
-   * - the catalog Card
-   * - all active Offers with store/category details
-   * - a count of active offers (_count.offers)
+   * Returns all active UserCard records for a user. Catalog cards include
+   * offers; custom cards get a synthetic card object (no offers).
    */
   static async getUserCards(userId: string) {
     try {
-      return await prisma.userCard.findMany({
+      const rows = await prisma.userCard.findMany({
         where: { userId, isActive: true },
         include: {
           card: {
@@ -115,6 +153,7 @@ export class CardService {
         },
         orderBy: { addedAt: "desc" },
       });
+      return rows.map((r) => normalizeUserCard(r));
     } catch (err) {
       console.error("[CardService.getUserCards]", err);
       throw err;
@@ -123,11 +162,11 @@ export class CardService {
 
   /**
    * Returns a single UserCard, verifying it belongs to the given user.
-   * Returns null if not found or ownership mismatch.
+   * Returns null if not found. Custom cards get a synthetic card object.
    */
   static async getUserCardById(userCardId: string, userId: string) {
     try {
-      return await prisma.userCard.findFirst({
+      const row = await prisma.userCard.findFirst({
         where: { id: userCardId, userId },
         include: {
           card: {
@@ -140,6 +179,7 @@ export class CardService {
           },
         },
       });
+      return row ? normalizeUserCard(row) : null;
     } catch (err) {
       console.error("[CardService.getUserCardById]", err);
       throw err;
@@ -156,9 +196,9 @@ export class CardService {
         where:   { userId, cardId: data.cardId, isActive: true },
         include: { card: true },
       });
-      if (existing) return existing;
+      if (existing) return normalizeUserCard(existing);
 
-      return await prisma.userCard.create({
+      const created = await prisma.userCard.create({
         data: {
           userId,
           cardId:   data.cardId,
@@ -167,8 +207,35 @@ export class CardService {
         },
         include: { card: true },
       });
+      return normalizeUserCard(created);
     } catch (err) {
       console.error("[CardService.addUserCard]", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Adds a custom card (not in catalog) to the user's wallet.
+   */
+  static async addCustomUserCard(userId: string, data: AddCustomCardInput) {
+    try {
+      const created = await prisma.userCard.create({
+        data: {
+          userId,
+          cardId:            null,
+          nickname:          data.nickname ?? null,
+          lastFour:          data.lastFour ?? null,
+          customIssuer:      data.issuer,
+          customCardName:    data.cardName,
+          customNetwork:     data.network as "VISA" | "MASTERCARD" | "AMEX" | "DISCOVER",
+          customBaseRewardPct: data.baseRewardPct,
+          customRewardType:  data.rewardType as "CASHBACK" | "POINTS" | "MILES",
+        },
+        include: { card: true },
+      });
+      return normalizeUserCard(created);
+    } catch (err) {
+      console.error("[CardService.addCustomUserCard]", err);
       throw err;
     }
   }
@@ -188,7 +255,7 @@ export class CardService {
       });
       if (!existing) return null;
 
-      return await prisma.userCard.update({
+      const updated = await prisma.userCard.update({
         where:   { id: userCardId },
         data:    {
           nickname: data.nickname,
@@ -197,6 +264,7 @@ export class CardService {
         },
         include: { card: true },
       });
+      return normalizeUserCard(updated);
     } catch (err) {
       console.error("[CardService.updateUserCard]", err);
       throw err;

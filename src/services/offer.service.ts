@@ -73,12 +73,15 @@ export class OfferService {
       });
       if (!store) return null;
 
-      // Resolve the cardIds that belong to the provided userCards
+      // Resolve the cardIds that belong to the provided userCards (custom cards have no catalog offers)
       const userCards = await prisma.userCard.findMany({
         where:  { id: { in: userCardIds }, isActive: true },
         select: { id: true, cardId: true },
       });
-      const cardIds = userCards.map((uc) => uc.cardId);
+      const cardIds = userCards.map((uc) => uc.cardId).filter((id): id is string => id != null);
+      if (cardIds.length === 0) {
+        return [];
+      }
 
       const offers = await prisma.offer.findMany({
         where: {
