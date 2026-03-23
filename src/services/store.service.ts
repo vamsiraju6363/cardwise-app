@@ -1,4 +1,22 @@
 import { prisma } from "@/lib/prisma";
+
+/** Maps search keywords to category slugs when store name search returns nothing. */
+const KEYWORD_TO_CATEGORY: Record<string, string> = {
+  gas: "gas", fuel: "gas", gasstation: "gas", "gas station": "gas", mobil: "gas",
+  grocery: "groceries", groceries: "groceries", supermarket: "groceries",
+  dining: "dining", restaurant: "dining", eat: "dining",
+  travel: "travel", flight: "travel", hotel: "travel",
+  online: "online-shopping", amazon: "online-shopping", shop: "general",
+};
+
+function getCategoryFromKeyword(query: string): string | null {
+  const cleaned = query.replace(/\s+/g, " ").trim().toLowerCase();
+  if (KEYWORD_TO_CATEGORY[cleaned]) return KEYWORD_TO_CATEGORY[cleaned];
+  for (const [kw, cat] of Object.entries(KEYWORD_TO_CATEGORY)) {
+    if (cleaned.includes(kw) || kw.includes(cleaned)) return cat;
+  }
+  return null;
+}
 import { CardService } from "./card.service";
 import { OfferService } from "./offer.service";
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
@@ -67,9 +85,18 @@ export class StoreService {
         return { ...store, matchScore: score };
       });
 
-      return scored
+      const sorted = scored
         .sort((a, b) => b.matchScore - a.matchScore)
         .slice(0, limit);
+
+      // When no name match, try category keywords (e.g. "gas", "gas station" → gas stores)
+      if (sorted.length === 0) {
+        const categoryFromQuery = getCategoryFromKeyword(normalized);
+        if (categoryFromQuery) {
+          return this.getStoresByCategorySlug(categoryFromQuery, limit);
+        }
+      }
+      return sorted;
     } catch (err) {
       console.error("[StoreService.searchStores]", err);
       throw err;

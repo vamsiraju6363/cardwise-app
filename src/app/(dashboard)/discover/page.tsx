@@ -6,7 +6,7 @@ import { StoreSearch } from "@/components/store/StoreSearch";
 import { RecommendationList } from "@/components/store/RecommendationList";
 import { useSearchStore } from "@/stores/useSearchStore";
 import { useUserCards } from "@/hooks/useCards";
-import { useStoresRankedByCategory } from "@/hooks/useStoreSearch";
+import { useStoresRankedByCategory, useStoresByCategory } from "@/hooks/useStoreSearch";
 import { useWalletStore } from "@/stores/useWalletStore";
 import { cn, BLUR_DATA_URL, formatPercent } from "@/lib/utils";
 import {
@@ -120,6 +120,7 @@ function BrowseCategories({ browseCategory, onCategoryClick }: BrowseCategoriesP
 interface CategoryStoresListProps {
   categoryName: string;
   rankedStores: RankedStoreResult[];
+  fallbackStores?: StoreSearchResult[] | null;
   isLoading: boolean;
   onSelect: (store: StoreSearchResult) => void;
 }
@@ -127,6 +128,7 @@ interface CategoryStoresListProps {
 function CategoryStoresList({
   categoryName,
   rankedStores,
+  fallbackStores,
   isLoading,
   onSelect,
 }: CategoryStoresListProps) {
@@ -137,23 +139,29 @@ function CategoryStoresList({
       </div>
     );
   }
-  if (rankedStores.length === 0) {
+  const storesToShow = rankedStores.length > 0 ? rankedStores : fallbackStores;
+  if (!storesToShow || storesToShow.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-6">
-        No stores found in {categoryName}.
+        No stores found in {categoryName}. Add your cards to see personalized rankings.
       </p>
     );
   }
+  const isRanked = rankedStores.length > 0;
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-        Best {categoryName} for your cards
+        {isRanked ? `Best ${categoryName} for your cards` : `Stores in ${categoryName}`}
       </h3>
-      <p className="text-xs text-muted-foreground mb-3">
-        Ranked by the highest reward you can earn with your wallet cards.
-      </p>
+      {isRanked && (
+        <p className="text-xs text-muted-foreground mb-3">
+          Ranked by the highest reward you can earn with your wallet cards.
+        </p>
+      )}
       <div className="space-y-2">
-        {rankedStores.map(({ store, bestRewardPct, bestCardName, bestOfferDescription }) => (
+        {isRanked
+          ? (storesToShow as RankedStoreResult[]).map(({ store, bestRewardPct, bestCardName, bestOfferDescription }) => (
           <button
             key={store.id}
             onClick={() => onSelect({ ...store, matchScore: store.matchScore ?? 0 })}
@@ -181,6 +189,20 @@ function CategoryStoresList({
                 {formatPercent(bestRewardPct)}
               </span>
             )}
+          </button>
+        ))
+          : (storesToShow as StoreSearchResult[]).map((store) => (
+          <button
+            key={store.id}
+            onClick={() => onSelect({ ...store, matchScore: store.matchScore ?? 0 })}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200",
+              "bg-white hover:border-emerald-300 hover:bg-emerald-50",
+              "text-left transition-all duration-150",
+            )}
+          >
+            <Store className="h-4 w-4 text-gray-400 shrink-0" />
+            <p className="font-medium text-gray-900 truncate">{store.name}</p>
           </button>
         ))}
       </div>
@@ -246,6 +268,9 @@ export default function DiscoverPage() {
   const { data: userCards } = useUserCards();
   const { data: rankedStores, isFetching: isLoadingCategory } =
     useStoresRankedByCategory(browseCategory);
+  const { data: fallbackStores } = useStoresByCategory(
+    browseCategory && !isLoadingCategory && (rankedStores?.length === 0) ? browseCategory : null,
+  );
   const openAddModal = useWalletStore((s) => s.openAddModal);
 
   const hasNoCards = (userCards ?? []).length === 0;
@@ -314,6 +339,7 @@ export default function DiscoverPage() {
       {/* ── Search input ── */}
       <StoreSearch
         onStoreSelect={handleStoreSelect}
+        onInputChange={() => setBrowseCategory(null)}
         className="w-full"
         inputRef={searchInputRef}
       />
@@ -334,6 +360,7 @@ export default function DiscoverPage() {
             <CategoryStoresList
               categoryName={CATEGORIES.find((c) => c.slug === browseCategory)?.name ?? browseCategory}
               rankedStores={rankedStores ?? []}
+              fallbackStores={fallbackStores}
               isLoading={isLoadingCategory}
               onSelect={(store) => {
                 handleStoreSelect(store);

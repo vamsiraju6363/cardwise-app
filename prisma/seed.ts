@@ -121,6 +121,7 @@ const storeData = [
   { name: "CVS",         slug: "cvs",         categorySlug: "general",         websiteDomain: "cvs.com",         merchantMcc: "5912" },
   { name: "Shell",       slug: "shell",       categorySlug: "gas",             websiteDomain: "shell.com",       merchantMcc: "5541" },
   { name: "Exxon",       slug: "exxon",       categorySlug: "gas",             websiteDomain: "exxon.com",       merchantMcc: "5541" },
+  { name: "Mobil",       slug: "mobil",       categorySlug: "gas",             websiteDomain: "mobil.com",       merchantMcc: "5541" },
   { name: "Chevron",     slug: "chevron",     categorySlug: "gas",             websiteDomain: "chevron.com",     merchantMcc: "5541" },
   { name: "BP",          slug: "bp",          categorySlug: "gas",             websiteDomain: "bp.com",          merchantMcc: "5541" },
   { name: "Starbucks",   slug: "starbucks",   categorySlug: "dining",          websiteDomain: "starbucks.com",   merchantMcc: "5814" },
@@ -452,6 +453,20 @@ const offerData: OfferSeed[] = [
     rewardPct:    0.03,
     rewardType:   RewardType.CASHBACK,
     bonusDescription: "3% cash back at U.S. gas stations",
+  },
+  {
+    cardKey:      "American Express|Blue Cash Preferred",
+    storeSlug:    "mobil",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% cash back at U.S. gas stations",
+  },
+  {
+    cardKey:      "Goldman Sachs|Apple Card",
+    storeSlug:    "mobil",
+    rewardPct:    0.03,
+    rewardType:   RewardType.CASHBACK,
+    bonusDescription: "3% Daily Cash at Exxon and select gas stations (Apple Pay)",
   },
 ];
 

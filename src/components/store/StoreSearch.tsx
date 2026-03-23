@@ -110,13 +110,15 @@ interface StoreSearchProps {
   className?: string;
   /** Ref to focus the search input (e.g. for "/" keyboard shortcut). */
   inputRef?: React.RefObject<HTMLInputElement>;
+  /** Called when the input value changes (e.g. to clear category selection elsewhere). */
+  onInputChange?: (value: string) => void;
 }
 
 /**
  * Hero store search input with autocomplete dropdown, keyboard navigation,
  * first-letter store avatars, category badges, and recent searches.
  */
-export function StoreSearch({ onStoreSelect, navigateOnSelect = false, className, inputRef: inputRefProp }: StoreSearchProps) {
+export function StoreSearch({ onStoreSelect, navigateOnSelect = false, className, inputRef: inputRefProp, onInputChange }: StoreSearchProps) {
   const listboxId = useId();
   const internalRef = useRef<HTMLInputElement | null>(null);
   const inputRef = inputRefProp ?? internalRef;
@@ -233,9 +235,11 @@ export function StoreSearch({ onStoreSelect, navigateOnSelect = false, className
           aria-autocomplete="list"
           value={inputValue}
           onChange={(e) => {
-            setInputValue(e.target.value);
+            const v = e.target.value;
+            setInputValue(v);
             setIsOpen(true);
             setActiveIndex(-1);
+            onInputChange?.(v);
           }}
           onFocus={() => { setIsOpen(true); setSearchFocused(true); }}
           onBlur={() => { setTimeout(() => setIsOpen(false), 150); setSearchFocused(false); }}
